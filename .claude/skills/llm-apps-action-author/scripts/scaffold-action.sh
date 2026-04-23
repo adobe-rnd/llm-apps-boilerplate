@@ -6,8 +6,9 @@
 #   bash .claude/skills/llm-apps-action-author/scripts/scaffold-action.sh <action-name> [--widget]
 #
 # Creates:
-#   actions/<action-name>/index.js     (from assets/handler-template.js)
-#   actions/<action-name>/widget.html  (from assets/widget-template.html, if --widget)
+#   actions/<action-name>/index.js         (from assets/handler-template.js)
+#   actions/<action-name>/widget.html      (from assets/widget-template.html, if --widget)
+#   test/actions/<action-name>.test.js     (from assets/handler-test-template.js)
 #
 # Zero dependencies beyond bash + coreutils.
 
@@ -116,17 +117,69 @@ if [ "$WITH_WIDGET" -eq 1 ]; then
     echo "created $TARGET_DIR/widget.html"
 fi
 
+TEST_TEMPLATE="$ASSETS_DIR/handler-test-template.js"
+TEST_DIR="$REPO_ROOT/test/actions"
+TEST_FILE="$TEST_DIR/$ACTION_NAME.test.js"
+
+if [ ! -f "$TEST_TEMPLATE" ]; then
+    echo "error: test template not found: $TEST_TEMPLATE" >&2
+    exit 1
+fi
+
+mkdir -p "$TEST_DIR"
+
+if [ -e "$TEST_FILE" ]; then
+    echo "warn: $TEST_FILE already exists; not overwriting." >&2
+else
+    sed -e "s|<ACTION_NAME>|$ACTION_NAME|g" "$TEST_TEMPLATE" > "$TEST_FILE"
+    echo "created $TEST_FILE"
+fi
+
+# Seed actions.json with a minimal placeholder entry so args flow to the handler
+# during local smoke tests. Without an inputSchema entry the MCP SDK registers the
+# tool with an empty Zod schema and strips every argument before calling the handler.
+ACTIONS_JSON="$REPO_ROOT/actions.json"
+node -e "
+const fs = require('fs');
+const name = '$ACTION_NAME';
+const file = '$ACTIONS_JSON';
+
+let data = { actions: [] };
+try { data = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) {}
+if (!Array.isArray(data.actions)) data.actions = [];
+
+if (data.actions.some(a => a.name === name)) {
+    process.stdout.write('actions.json already has an entry for ' + name + ' — skipping\n');
+    process.exit(0);
+}
+
+const title = name.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+data.actions.push({
+    name,
+    title,
+    description: 'TODO: set in the llm-apps UI',
+    inputSchema: { type: 'object', properties: {}, required: [] }
+});
+
+fs.writeFileSync(file, JSON.stringify(data, null, 2) + '\n');
+process.stdout.write('updated actions.json — add inputSchema properties before smoke testing\n');
+"
+
 cat <<EOF
 
 Next steps:
   1. Open $TARGET_DIR/index.js and implement the handler.
-  2. Author metadata (title, description, inputSchema, annotations) in the llm-apps UI.
-  3. Click "Download actions.json" on the Actions page and drop it at $REPO_ROOT/actions.json
+  2. Open $TEST_FILE and flesh out the tests (happy path + edge cases).
+     Run them with:  npx jest test/actions/$ACTION_NAME
+  3. Add your input properties to the $ACTION_NAME entry in actions.json so args
+     flow through to the handler during local testing.
   4. Smoke test:
        npm run dev:local   # local Node HTTP server (no Adobe credentials)
        # or
        npm run dev         # deploys to I/O Runtime
      Then verify via MCP Inspector, Claude Desktop, or curl.
+  5. Author the full metadata (title, description, inputSchema, annotations) in the
+     llm-apps UI, then click "Download actions.json" to replace the local placeholder.
 
 Validate the handler shape before shipping:
   node .claude/skills/llm-apps-action-author/scripts/validate-handler.js actions/$ACTION_NAME/index.js

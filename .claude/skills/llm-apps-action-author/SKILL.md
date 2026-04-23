@@ -68,7 +68,7 @@ Does the tool produce any output at all?
 
 ## Happy-path workflow
 
-For any new action, follow these four steps in order. Use the scaffold script to avoid manual file creation.
+For any new action, follow these five steps in order. Use the scaffold script to avoid manual file creation.
 
 ### Step 1. Scaffold
 
@@ -84,6 +84,7 @@ The script validates that `<action-name>` is kebab-case and creates:
 
 - `actions/<action-name>/index.js` from `assets/handler-template.js` (or `handler-with-widget-template.js` if `--widget`)
 - `actions/<action-name>/widget.html` from `assets/widget-template.html` when `--widget` is passed
+- `test/actions/<action-name>.test.js` from `assets/handler-test-template.js` (always — never skip the test file)
 
 ### Step 2. Write the handler
 
@@ -107,15 +108,56 @@ Rules that matter:
 - **Never log secrets** (tokens, Authorization headers, PII). `console.log` output in I/O Runtime is retained.
 - **Never execute dynamic code** (`eval`, `new Function`, dynamic `require(userInput)`). App Builder security rules forbid this.
 
-### Step 3. Download `actions.json`
+### Step 3. Write tests
 
-Tell the user (or confirm they've already done it):
+Open `test/actions/<action-name>.test.js` (scaffolded in Step 1) and replace the TODO with real assertions. **Always write tests before moving on** — they are the fastest feedback loop, faster than any `curl` or host integration.
 
-> Go to the Actions page for your app in the llm-apps UI, click **Download actions.json**, and save it at the repo root.
+Cover, at minimum:
 
-If they haven't authored metadata in the UI yet, the loader will still register handlers via filesystem discovery with empty metadata and print a banner warning. That's fine for a first smoke test but not a complete round-trip.
+- The happy path (typical valid args → expected `content[0].text`).
+- Each meaningful branch: missing required arg, upstream API error, edge cases your handler actually handles.
+- If the handler returns `structuredContent`: assert it's a **plain object**, not a bare array.
 
-### Step 4. Smoke test locally
+Rules that matter:
+
+- **Handler tests live under `test/actions/`**, not next to the handler. Co-locating would let webpack bundle test files into `dist/index.js`. The scaffold script enforces this.
+- Test the handler **in isolation** — import the function directly (`require('../../actions/<name>/index.js')`), call it with plain args, assert on the return value. No MCP server, no network.
+- Mock external HTTP calls (`fetch`, `aio-lib-state`, etc.) — don't hit real APIs in unit tests.
+- `test/server.test.js` already covers the MCP protocol and action-loader paths. Don't re-test those; just test your handler.
+
+Run tests:
+
+```bash
+npx jest test/actions/<action-name>   # just this handler, fast
+npm test                              # everything (handler units + server integration)
+```
+
+Iterate until tests pass. If you can't write a test for a behavior, that's usually a sign the handler is doing too much — refactor.
+
+See [references/local-testing.md](references/local-testing.md#unit-test-your-handler) for more examples (widget cases, async mocking).
+
+### Step 4. Populate `actions.json`
+
+The scaffold already added a placeholder entry to `actions.json`. **Before smoke testing, add your actual input properties to `inputSchema.properties`** — without them, Zod strips every argument before it reaches your handler and all args will be empty:
+
+```json
+{
+  "name": "my-action",
+  "title": "My Action",
+  "description": "TODO: set in the llm-apps UI",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "myParam": { "type": "string", "description": "..." }
+    },
+    "required": ["myParam"]
+  }
+}
+```
+
+In production, metadata (title, description, inputSchema, annotations) comes from the llm-apps UI. Once you've configured the action there, click **Download actions.json** on the Actions page and drop it at the repo root to replace the local placeholder.
+
+### Step 5. Smoke test locally
 
 Pick one of two modes:
 
@@ -151,7 +193,7 @@ node .claude/skills/llm-apps-action-author/scripts/validate-handler.js actions/<
 npm test
 ```
 
-`validate-handler.js` checks the export shape and that a trivial call returns a valid `{ content, structuredContent? }` object.
+`validate-handler.js` checks the export shape and that a trivial call returns a valid `{ content, structuredContent? }` object. `npm test` runs every handler's unit tests plus `test/server.test.js` — both must pass.
 
 ## Return-shape contract
 
@@ -185,12 +227,13 @@ See [references/widget-patterns.md](references/widget-patterns.md) for CSP and p
 │   ├── eds-widget.md                 # When to pick EDS and what gets generated
 │   └── local-testing.md              # npm run dev, Inspector, Claude, Cursor
 ├── assets/
-│   ├── handler-template.js           # Bare handler starter
+│   ├── handler-template.js             # Bare handler starter
 │   ├── handler-with-widget-template.js # Handler returning content + structuredContent
-│   └── widget-template.html          # Widget iframe starter
+│   ├── handler-test-template.js        # Jest test starter for a handler
+│   └── widget-template.html            # Widget iframe starter
 └── scripts/
-    ├── scaffold-action.sh            # Zero-dep action scaffolder
-    └── validate-handler.js           # Zero-dep handler shape checker
+    ├── scaffold-action.sh              # Zero-dep action scaffolder (handler + test + optional widget)
+    └── validate-handler.js             # Zero-dep handler shape checker
 ```
 
 Load references on-demand -- they exist so this file stays focused on the happy path.
