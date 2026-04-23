@@ -1,0 +1,34 @@
+# Adobe LLM Apps boilerplate — Adobe I/O Runtime application configuration.
+#
+# Defines how the MCP server is deployed to I/O Runtime. Customize as needed.
+
+application:
+  actions: server
+  web: web-src
+  runtimeManifest:
+    packages:
+      # Package name — change to match your project.
+      llm-apps:
+        actions:
+          # MCP server action (exposed as POST /.../mcp)
+          mcp:
+            function: entry.js
+            web: 'yes'
+            runtime: 'nodejs:24'
+            limits:
+              # Timeout in milliseconds (5 minutes for complex operations)
+              timeout: 300000
+              # Memory limit in MB (adjust based on your needs)
+              memory: 512
+            inputs:
+              # Set log level (debug, info, warn, error)
+              LOG_LEVEL: debug
+            annotations:
+              # No Adobe authentication required for MCP servers
+              require-adobe-auth: false
+              # Final action (no further processing)
+              final: true
+              # Expose as web action
+              web-export: true
+              # Enable raw HTTP mode for MCP protocol
+              raw-http: true

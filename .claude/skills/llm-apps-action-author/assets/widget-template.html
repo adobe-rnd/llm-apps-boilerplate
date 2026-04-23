@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title><ACTION_NAME> widget</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 12px;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+        color: #1d1d1f;
+        background: transparent;
+        line-height: 1.4;
+      }
+      .card {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 12px 14px;
+        background: #fff;
+      }
+      .title { font-weight: 600; margin: 0 0 6px; font-size: 14px; }
+      .json {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px;
+        white-space: pre-wrap;
+        word-break: break-word;
+        margin: 0;
+      }
+      .empty { color: #6e6e73; font-style: italic; }
+    </style>
+  </head>
+  <body>
+    <div class="card" id="root">
+      <p class="title"><ACTION_NAME></p>
+      <p class="empty">Loading ...</p>
+    </div>
+
+    <script>
+      (async () => {
+        const root = document.getElementById('root');
+        try {
+          const output = await window.openai.toolOutput;
+          const pretty = JSON.stringify(output, null, 2);
+          root.innerHTML = '<p class="title"><ACTION_NAME></p>' +
+                           '<pre class="json"></pre>';
+          root.querySelector('.json').textContent = pretty;
+        } catch (err) {
+          root.innerHTML = '<p class="title"><ACTION_NAME></p>' +
+                           '<p class="empty">No tool output available.</p>';
+        }
+      })();
+    </script>
+  </body>
+</html>

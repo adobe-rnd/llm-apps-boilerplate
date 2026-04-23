@@ -1,0 +1,33 @@
+
+# package directories
+node_modules
+dist
+
+.env*
+.aio
+
+# Local dev config (downloaded from the llm-apps UI; written by the deploy pipeline in production)
+actions.json
+!test/fixtures/actions.json
+
+# Test output
+junit.xml
+
+# IDE & Temp
+.cache
+.idea
+.nyc_output
+.vscode
+coverage
+
+# Parcel
+.parcel-cache
+
+# OSX
+.DS_Store
+
+# yeoman
+.yo-repository
+
+# this template's e2e test directory
+temp-template-test

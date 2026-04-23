@@ -1,0 +1,49 @@
+{
+  "name": "llm-apps-poc",
+  "version": "1.0.0",
+  "description": "MCP Apps boilerplate for Adobe I/O Runtime -- build AI tools with interactive widgets",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "dev:local": "npm run build && node server/local.js",
+    "prebuild": "node -e \"const f=require('fs');if(!f.existsSync('actions.json'))f.writeFileSync('actions.json','{\\\"actions\\\":[]}')\"",
+    "build": "npm run prebuild && webpack",
+    "deploy": "npm run build && aio app deploy",
+    "undeploy": "aio app undeploy",
+    "dev": "aio app run",
+    "lint": "eslint actions/",
+    "format": "prettier --write actions/"
+  },
+  "dependencies": {
+    "@adobe/aio-sdk": "^5.0.0",
+    "@adobe/llm-apps-runtime": "file:../llm-apps-runtime",
+    "@modelcontextprotocol/sdk": "^1.25.3",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@adobe/generator-app-remote-mcp-server-generic": "^0.1.8",
+    "@babel/core": "^7.26.10",
+    "@babel/preset-env": "^7.26.9",
+    "babel-loader": "^9.2.1",
+    "eslint": "^8.57.0",
+    "jest": "^29.0.0",
+    "prettier": "^3.0.0",
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.4"
+  },
+  "keywords": [
+    "adobe-io",
+    "mcp",
+    "model-context-protocol",
+    "serverless",
+    "template",
+    "i/o-runtime"
+  ],
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "license": "SEE LICENSE IN LICENSE",
+  "aio-app-builder-templates": [
+    "@adobe/generator-app-remote-mcp-server-generic"
+  ]
+}

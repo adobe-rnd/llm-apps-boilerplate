@@ -1,0 +1,64 @@
+{
+  "actions": [
+    {
+      "name": "echo",
+      "title": "Echo",
+      "description": "A simple utility that echoes back the input message.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "The message to echo back"
+          }
+        },
+        "required": ["message"]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": true
+      }
+    },
+    {
+      "name": "empty-tool",
+      "title": "Empty Tool",
+      "description": "Config-only action with no handler folder; exercises the default handler.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Ignored by the default handler"
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "eds-demo",
+      "title": "EDS Demo",
+      "description": "Handler-less EDS widget action; exercises the EDS template generator.",
+      "widget_type": "EDS",
+      "eds_widget": {
+        "script_url": "https://example.aem.page/scripts/aem-embed.js",
+        "widget_embed_url": "https://example.aem.page/eds-widgets/demo"
+      },
+      "resource_meta": {
+        "csp": {
+          "connectDomains": ["https://example.aem.page"],
+          "resourceDomains": ["https://example.aem.page"]
+        },
+        "prefersBorder": true
+      },
+      "tool_meta": {
+        "ui": {
+          "visibility": ["model", "app"]
+        },
+        "openai/toolInvocation/invoking": "Loading demo widget...",
+        "openai/widgetAccessible": true
+      }
+    }
+  ]
+}
