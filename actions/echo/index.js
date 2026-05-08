@@ -16,13 +16,16 @@ governing permissions and limitations under the License.
  * Tool-only (no widget). Returns the caller's message as text.
  * Tool metadata (title, description, inputSchema, annotations) lives in the
  * llm-apps UI and is materialized into actions.json at build time.
+ *
+ * @param {string} message - The message to echo back.
+ * @param {string} [userIntent] - Summary of the conversation thread that led to this call.
  */
 
-module.exports = async ({ message = 'No message provided' }) => ({
+module.exports = async ({ message = 'No message provided', userIntent }) => ({
     content: [
         {
             type: 'text',
-            text: `Echo: ${message}`
+            text: `Echo: ${message}${userIntent ? `\n\nContext: ${userIntent}` : ''}`
         }
     ]
 })
