@@ -30,11 +30,20 @@ const path = require('path')
 // Uses the /local subpath (not the package root) so we don't transitively
 // load the MCP SDK here — the SDK is ESM-only and Node's CJS loader can't
 // resolve it. It only works bundled by webpack (dist/index.js below).
-const { createLocalServer } = require('@adobe/llm-apps-runtime/local')
+const { createLocalServer, parseParamArgs } = require('@adobe/llm-apps-runtime/local')
 
 // The webpack bundle (dist/index.js) resolves ESM/CJS interop for the MCP SDK.
 // Run `npm run build` (or `npm run dev:local` which does it automatically) before starting.
 const distPath = path.resolve(__dirname, '..', 'dist', 'index.js')
 const { main } = require(distPath)
 
-createLocalServer(main, process.env.PORT || 9080)
+// Parse --param KEY=VALUE flags from the command line (same grammar as aio app deploy --param).
+// These are injected into every request's params, simulating Adobe I/O Runtime action params locally.
+//
+// Example:
+//   node server/local.js \
+//     --param LLMA_ANALYTICS_URL=http://localhost:8080/v1/analytics/ingest \
+//     --param LLMA_ANALYTICS_APP_ID=my-app \
+//     --param LLMA_ANALYTICS_KEY=<hex>
+const extraParams = parseParamArgs(process.argv)
+createLocalServer(main, process.env.PORT || 9080, extraParams)
