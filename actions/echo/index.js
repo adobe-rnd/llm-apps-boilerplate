@@ -18,14 +18,13 @@ governing permissions and limitations under the License.
  * llm-apps UI and is materialized into actions.json at build time.
  *
  * @param {string} message - The message to echo back.
- * @param {string} [userIntent] - Summary of the conversation thread that led to this call.
  */
 
-module.exports = async ({ message = 'No message provided', userIntent }) => ({
+module.exports = async ({ message = 'No message provided' }) => ({
     content: [
         {
             type: 'text',
-            text: `Echo: ${message}${userIntent ? `\n\nContext: ${userIntent}` : ''}`
+            text: `Echo: ${message}`
         }
     ]
 })
