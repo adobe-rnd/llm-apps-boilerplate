@@ -5,6 +5,8 @@
 application:
   actions: server
   web: web-src
+  hooks:
+    build-static: node scripts/build-static.js
   runtimeManifest:
     packages:
       # Package name — change to match your project.

@@ -1,5 +1,5 @@
 {
-  "name": "llm-apps-poc",
+  "name": "llm-apps-boilerplate",
   "version": "1.0.0",
   "description": "MCP Apps boilerplate for Adobe I/O Runtime -- build AI tools with interactive widgets",
   "scripts": {
@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@adobe/aio-sdk": "^5.0.0",
-    "@adobe/llm-apps-runtime": "0.11.0",
+    "@adobe/llm-apps-runtime": "0.12.0",
     "@modelcontextprotocol/sdk": "^1.25.3",
     "zod": "^3.23.8"
   },
