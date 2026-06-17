@@ -18,6 +18,8 @@
     "@adobe/aio-sdk": "^5.0.0",
     "@adobe/llm-apps-runtime": "0.12.1",
     "@modelcontextprotocol/sdk": "^1.25.3",
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.4",
     "zod": "^3.23.8"
   },
   "devDependencies": {
@@ -27,9 +29,7 @@
     "babel-loader": "^9.2.1",
     "eslint": "^8.57.0",
     "jest": "^29.0.0",
-    "prettier": "^3.0.0",
-    "webpack": "^5.89.0",
-    "webpack-cli": "^5.1.4"
+    "prettier": "^3.0.0"
   },
   "keywords": [
     "adobe-io",
