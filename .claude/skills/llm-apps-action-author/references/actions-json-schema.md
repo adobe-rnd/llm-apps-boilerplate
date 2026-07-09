@@ -92,7 +92,7 @@ Goes into the widget resource's `_meta` block. Commonly used keys:
 - `csp.connectDomains`: hosts the widget iframe may `fetch`/`XHR`/`WebSocket` to. Always list every domain or the host will block the call.
 - `csp.resourceDomains`: hosts for `<img>`, `<script>`, `<link>` sources.
 - `permissions`: browser permission names (`camera`, `microphone`, ...) the widget needs.
-- `domain`: origin hint used by some hosts for iframe sandbox policy.
+- `domain`: origin hint used by some hosts for iframe sandbox policy. Note: for the Claude host this field is ignored — the runtime auto-derives `ui.domain` as a SHA-256 subdomain of the MCP server URL (`{hash}.claudemcpcontent.com`), which is what Claude requires. The value here is only used by non-Claude hosts.
 - `prefersBorder`: whether the host should render a chrome around the iframe.
 
 The loader wraps these under `_meta.ui.*` and attaches them to the widget resource content, not to the tool. Empty/undefined fields are omitted.
