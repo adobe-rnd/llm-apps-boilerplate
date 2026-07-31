@@ -49,5 +49,11 @@ module.exports = {
         '^.+\\.js$': 'babel-jest',
         // Import .html files as raw strings in tests (mirrors webpack asset/source)
         '\\.html$': '<rootDir>/test/html-transform.js'
-    }
+    },
+
+    // jose ships ESM-only; transform it instead of skipping it like the rest of node_modules.
+    // The lookahead scans for a '/jose/' segment anywhere ahead (not just immediately after
+    // this node_modules/), so jose is still matched and transformed even if some future
+    // dependency bump nests it under another package's own node_modules.
+    transformIgnorePatterns: ['node_modules(?!.*/jose/)']
 }
