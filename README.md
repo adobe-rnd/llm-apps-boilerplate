@@ -153,6 +153,51 @@ When you need a fully custom, self-contained widget, drop a `widget.html` file n
 
 During local dev you can round-trip a custom widget without the UI: the `widget.html` you commit wins over any EDS config.
 
+## Auth in actions
+
+Same split as everything else: **whether** an action requires auth lives in the UI, **how your handler uses the token** lives in code. See `actions/whoami/index.js` for a working reference.
+
+In the llm-apps UI, per action you can set:
+
+- `requiresAuth: true` — this action needs a valid, verified token before your handler runs.
+- `scopes: [...]` — a token must carry all of these to reach your handler.
+
+And at the app level, an `auth` block (issuer, JWKS URI, resource, supported scopes) that describes the identity provider you're trusting. Both are UI-only concerns — nothing to configure in this repo.
+
+When both are set, the runtime verifies the caller's bearer token (signature, issuer, audience, expiry) **before** your handler ever runs, and forwards the result as the handler's second argument:
+
+```js
+module.exports = async (args, extra) => {
+    const authInfo = extra?.authInfo
+    // {
+    //   token: '<raw bearer token>',
+    //   clientId: '<client_id/azp claim>',
+    //   scopes: ['orders:read', ...],
+    //   expiresAt: <unix seconds>,
+    //   resource: '<verified audience>',
+    //   extra: { sub: '<subject claim>', ...other allow-listed claims }
+    // }
+}
+```
+
+If the action isn't `requiresAuth: true`, or the app's `auth` block isn't enabled, `authInfo` is simply `undefined` — treat that as "no identity available," not an error.
+
+**Reading the caller's identity** — safe to use directly (`authInfo.extra.sub`, `authInfo.clientId`, `authInfo.scopes`).
+
+**Calling another API as the caller** — forward `authInfo.token` as a normal Bearer header, exactly like a browser would:
+
+```js
+const response = await fetch(upstreamUrl, {
+    headers: { Authorization: `Bearer ${authInfo.token}` }
+})
+```
+
+Rules that matter here specifically:
+
+- **Never log or return the raw token** (or any header containing it) — it's a live credential, and `console.log` output on I/O Runtime is retained.
+- Missing/insufficient auth is enforced by the runtime **before** your handler runs — you don't need to re-check `requiresAuth`/`scopes` yourself.
+- Locally (`npm run dev:local`), without a real IdP wired into your `actions.json`'s `auth` block, `authInfo` will always be `undefined` — write your handler to degrade gracefully (see `whoami`'s fallback message), and cover both branches in your tests. `test/actions/whoami.test.js` shows how: hand-construct an `extra.authInfo` object shaped like the real thing, no MCP server or real token needed.
+
 ## `content` vs `structuredContent`
 
 | | `content` | `structuredContent` |
@@ -290,11 +335,14 @@ test('weather-lookup returns temperature', async () => {
 your-llm-app/
 ├── entry.js                   # Webpack entry — require.context + createMain invocation
 ├── actions/                   # Your handler directories (deployable files only)
-│   └── echo/
-│       └── index.js           # Handler (plain async function)
+│   ├── echo/
+│   │   └── index.js           # Handler (plain async function)
+│   └── whoami/
+│       └── index.js           # Handler reading extra.authInfo — see "Auth in actions"
 ├── test/
 │   ├── actions/
-│   │   └── echo.test.js       # Handler unit tests (mirrors actions/ layout)
+│   │   ├── echo.test.js       # Handler unit tests (mirrors actions/ layout)
+│   │   └── whoami.test.js     # Same, but hand-builds extra.authInfo — no real IdP needed
 │   ├── fixtures/actions.json  # Test config
 │   └── server.test.js         # Server integration tests
 ├── server/

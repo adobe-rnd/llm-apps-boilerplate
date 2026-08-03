@@ -329,7 +329,7 @@ describe('MCP Apps Server', () => {
             withoutMain = makeMain()
         })
 
-        test('tools/list falls back to filesystem discovery (echo only)', async () => {
+        test('tools/list falls back to filesystem discovery (every actions/ folder)', async () => {
             const result = await mcpPost(withoutMain, {
                 jsonrpc: '2.0',
                 id: 40,
@@ -341,7 +341,7 @@ describe('MCP Apps Server', () => {
             const body = JSON.parse(result.body)
             const names = body.result.tools.map(t => t.name)
 
-            expect(names).toEqual(['echo'])
+            expect(names).toEqual(['echo', 'whoami'])
         })
 
         test('fallback tool uses folder name as description (no metadata)', async () => {
