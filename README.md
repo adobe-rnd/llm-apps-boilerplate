@@ -202,11 +202,11 @@ Rules that matter here specifically:
 
 Same split again: declaring a variable (name, and type `string` or `secret`) is done in the llm-apps UI; reading it is your handler's job. See `actions/greet/index.js` for a working reference.
 
-Once declared and deployed, the runtime forwards every variable into the handler's second argument as `extra.secrets`, keyed by name — `string` and `secret` types surface identically, nothing in code distinguishes them:
+Once declared and deployed, the runtime forwards every variable into the handler's second argument as `extra.variables`, keyed by name — `string` and `secret` types surface identically, nothing in code distinguishes them:
 
 ```js
 module.exports = async (args, extra) => {
-    const prefix = extra?.secrets?.GREETING_PREFIX || 'Hello'
+    const prefix = extra?.variables?.GREETING_PREFIX || 'Hello'
 }
 ```
 
@@ -220,7 +220,7 @@ node server/local.js \
   --param GREETING_PREFIX=Howdy
 ```
 
-Without those flags, `extra.secrets` is `undefined` and `greet` falls back to its default greeting — degrade gracefully, same as `authInfo`.
+Without those flags, `extra.variables` is `undefined` and `greet` falls back to its default greeting — degrade gracefully, same as `authInfo`.
 
 ## `content` vs `structuredContent`
 
@@ -364,12 +364,12 @@ your-llm-app/
 │   ├── whoami/
 │   │   └── index.js           # Handler reading extra.authInfo — see "Auth in actions"
 │   └── greet/
-│       └── index.js           # Handler reading extra.secrets — see "Variables & secrets in actions"
+│       └── index.js           # Handler reading extra.variables — see "Variables & secrets in actions"
 ├── test/
 │   ├── actions/
 │   │   ├── echo.test.js       # Handler unit tests (mirrors actions/ layout)
 │   │   ├── whoami.test.js     # Same, but hand-builds extra.authInfo — no real IdP needed
-│   │   └── greet.test.js      # Same, but hand-builds extra.secrets — no deploy pipeline needed
+│   │   └── greet.test.js      # Same, but hand-builds extra.variables — no deploy pipeline needed
 │   ├── fixtures/actions.json  # Test config
 │   └── server.test.js         # Server integration tests
 ├── server/

@@ -14,11 +14,11 @@ governing permissions and limitations under the License.
 // GREETING_PREFIX (name + type) is done in the llm-apps UI; see "Variables &
 // secrets in actions" in the README.
 module.exports = async (args, extra) => {
-    const prefix = extra?.secrets?.GREETING_PREFIX || 'Hello'
+    const prefix = extra?.variables?.GREETING_PREFIX || 'Hello'
 
     // For a secret-typed variable (e.g. an upstream API key), read it the
     // same way and forward it as a header — never log or return it raw:
-    //   const res = await fetch(url, { headers: { Authorization: `Bearer ${extra.secrets.UPSTREAM_API_KEY}` } })
+    //   const res = await fetch(url, { headers: { Authorization: `Bearer ${extra.variables.UPSTREAM_API_KEY}` } })
 
     return {
         content: [
