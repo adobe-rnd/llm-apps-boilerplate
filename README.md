@@ -216,7 +216,7 @@ Locally (`npm run dev:local`), simulate declared variables with `--param` flags 
 
 ```bash
 node server/local.js \
-  --param 'LLMA_SECRET_NAMES=["GREETING_PREFIX"]' \
+  --param 'LLMA_VARIABLE_NAMES=["GREETING_PREFIX"]' \
   --param GREETING_PREFIX=Howdy
 ```
 
