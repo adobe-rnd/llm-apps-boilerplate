@@ -15,7 +15,7 @@
     "format": "prettier --write actions/"
   },
   "dependencies": {
-    "@adobe/llm-apps-runtime": "^1.0.2",
+    "@adobe/llm-apps-runtime": "^1.1.0",
     "webpack": "^5.89.0",
     "webpack-cli": "^5.1.4"
   },
