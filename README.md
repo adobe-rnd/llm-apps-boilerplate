@@ -198,6 +198,30 @@ Rules that matter here specifically:
 - Missing/insufficient auth is enforced by the runtime **before** your handler runs — you don't need to re-check `requiresAuth`/`scopes` yourself.
 - Locally (`npm run dev:local`), without a real IdP wired into your `actions.json`'s `auth` block, `authInfo` will always be `undefined` — write your handler to degrade gracefully (see `whoami`'s fallback message), and cover both branches in your tests. `test/actions/whoami.test.js` shows how: hand-construct an `extra.authInfo` object shaped like the real thing, no MCP server or real token needed.
 
+## Variables & secrets in actions
+
+Same split again: declaring a variable (name, and type `string` or `secret`) is done in the llm-apps UI; reading it is your handler's job. See `actions/greet/index.js` for a working reference.
+
+Once declared and deployed, the runtime forwards every variable into the handler's second argument as `extra.variables`, keyed by name — `string` and `secret` types surface identically, nothing in code distinguishes them:
+
+```js
+module.exports = async (args, extra) => {
+    const prefix = extra?.variables?.GREETING_PREFIX || 'Hello'
+}
+```
+
+**Never log or return a `secret`-typed value** — same rule as `authInfo.token` above.
+
+Locally (`npm run dev:local`), simulate declared variables with `--param` flags (the same mechanism already used for `LLMA_ANALYTICS_*`):
+
+```bash
+node server/local.js \
+  --param 'LLMA_VARIABLE_NAMES=["GREETING_PREFIX"]' \
+  --param GREETING_PREFIX=Howdy
+```
+
+Without those flags, `extra.variables` is `undefined` and `greet` falls back to its default greeting — degrade gracefully, same as `authInfo`.
+
 ## `content` vs `structuredContent`
 
 | | `content` | `structuredContent` |
@@ -337,12 +361,15 @@ your-llm-app/
 ├── actions/                   # Your handler directories (deployable files only)
 │   ├── echo/
 │   │   └── index.js           # Handler (plain async function)
-│   └── whoami/
-│       └── index.js           # Handler reading extra.authInfo — see "Auth in actions"
+│   ├── whoami/
+│   │   └── index.js           # Handler reading extra.authInfo — see "Auth in actions"
+│   └── greet/
+│       └── index.js           # Handler reading extra.variables — see "Variables & secrets in actions"
 ├── test/
 │   ├── actions/
 │   │   ├── echo.test.js       # Handler unit tests (mirrors actions/ layout)
-│   │   └── whoami.test.js     # Same, but hand-builds extra.authInfo — no real IdP needed
+│   │   ├── whoami.test.js     # Same, but hand-builds extra.authInfo — no real IdP needed
+│   │   └── greet.test.js      # Same, but hand-builds extra.variables — no deploy pipeline needed
 │   ├── fixtures/actions.json  # Test config
 │   └── server.test.js         # Server integration tests
 ├── server/
