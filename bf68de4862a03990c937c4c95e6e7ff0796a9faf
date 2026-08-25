@@ -2,14 +2,14 @@
   "schema_version": "1.0.0",
   "mode": "full",
   "commit_sha": "bf68de4862a03990c937c4c95e6e7ff0796a9faf",
-  "author": "georgica.chiriac@gmail.com",
-  "timestamp": "2026-08-25T11:14:17+03:00",
+  "author": "chiriac@adobe.com",
+  "timestamp": "2026-08-25T11:05:04+03:00",
   "detection": {
-    "ai_assisted": true,
-    "method": "heuristic",
-    "tool": "claude-code",
+    "ai_assisted": false,
+    "method": "editor_hook",
+    "tool": "unknown",
     "model": "",
-    "confidence": 0.95
+    "confidence": 1.0
   },
   "stats": {
     "total_additions": 0,
