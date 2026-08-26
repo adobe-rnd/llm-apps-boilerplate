@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0.0",
+  "mode": "full",
+  "commit_sha": "51453abc92e076a3f1e5719cda45f8396ab9517f",
+  "author": "georgica.chiriac@gmail.com",
+  "timestamp": "2026-08-26T15:25:03+03:00",
+  "detection": {
+    "ai_assisted": false,
+    "method": "editor_hook",
+    "tool": "unknown",
+    "model": "",
+    "confidence": 1.0
+  },
+  "stats": {
+    "total_additions": 0,
+    "total_deletions": 0,
+    "ai_additions": 0,
+    "ai_deletions": 0,
+    "human_additions": 0,
+    "human_deletions": 0
+  },
+  "files": {}
+}
