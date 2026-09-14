@@ -1,0 +1,76 @@
+<!doctype html>
+<!--
+  open_csv widget — file extension handler example.
+
+  Demonstrates the app (iframe) side of the OpenAI file-handler flow using
+  @adobe/llmapps-sdk:
+    - read the opened file via its opaque resourceUri (readResource)
+    - edit it in a textarea
+    - write it back with writeResource(uri, { text, ifMatch })
+
+  The host manages the file; the widget never sees the real filesystem path.
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 0; padding: 12px; }
+      textarea { width: 100%; min-height: 200px; box-sizing: border-box; font-family: monospace; }
+      .row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+      .status { color: #6b7280; font-size: 13px; }
+    </style>
+  </head>
+  <body>
+    <div id="name" class="status">Loading…</div>
+    <textarea id="editor" aria-label="File contents"></textarea>
+    <div class="row">
+      <button id="save" type="button">Save</button>
+      <span id="status" class="status"></span>
+    </div>
+
+    <script type="module">
+      import { createApp } from 'https://esm.sh/@adobe/llmapps-sdk';
+
+      const nameEl = document.getElementById('name');
+      const editor = document.getElementById('editor');
+      const statusEl = document.getElementById('status');
+      const saveBtn = document.getElementById('save');
+
+      let resourceUri = null;
+      let etag = null;
+
+      const app = await createApp({ appInfo: { name: 'open-csv', version: '1.0.0' } });
+
+      // The host delivers the initial tool result (the { file } we returned) so
+      // the widget can render without re-calling the tool.
+      app.ontoolresult = async (result) => {
+        const file = result?.structuredContent?.file;
+        if (!file) return;
+        resourceUri = file.resourceUri;
+        nameEl.textContent = file.name;
+        const res = await app.readResource(resourceUri);
+        const content = res?.contents?.[0] ?? {};
+        editor.value = content.text ?? '';
+        etag = content?._meta?.['openai/resource']?.etag ?? null;
+      };
+
+      saveBtn.addEventListener('click', async () => {
+        if (!resourceUri) return;
+        statusEl.textContent = 'Saving…';
+        const out = await app.writeResource(resourceUri, {
+          text: editor.value,
+          ...(etag ? { ifMatch: etag } : {})
+        });
+        if (out.outcome === 'saved') {
+          etag = out.etag;
+          statusEl.textContent = 'Saved.';
+        } else if (out.outcome === 'conflict') {
+          statusEl.textContent = 'The file changed elsewhere — reload before saving.';
+        } else {
+          statusEl.textContent = `Too large (max ${out.maxBytes} bytes).`;
+        }
+      });
+    </script>
+  </body>
+</html>
