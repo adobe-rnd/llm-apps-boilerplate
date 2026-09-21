@@ -132,8 +132,8 @@ describe('MCP Apps Server', () => {
                 const body = JSON.parse(result.body)
                 const names = body.result.tools.map(t => t.name)
 
-                expect(names).toEqual(expect.arrayContaining(['echo', 'empty-tool', 'eds-demo']))
-                expect(names).toHaveLength(3)
+                expect(names).toEqual(expect.arrayContaining(['echo', 'empty-tool', 'eds-demo', 'hidden-tool']))
+                expect(names).toHaveLength(4)
             })
 
             test('tool metadata comes from actions.json (description, schema, annotations)', async () => {
@@ -231,6 +231,25 @@ describe('MCP Apps Server', () => {
             })
         })
 
+        describe('Non-widget action with restricted visibility (AMCP-513)', () => {
+            test('hidden-tool nests ui/visibility under _meta.ui.visibility with no widget meta', async () => {
+                const result = await mcpPost(withMain, {
+                    jsonrpc: '2.0',
+                    id: 25,
+                    method: 'tools/list',
+                    params: {}
+                })
+
+                const body = JSON.parse(result.body)
+                const tool = body.result.tools.find(t => t.name === 'hidden-tool')
+
+                expect(tool).toBeDefined()
+                expect(tool._meta.ui.visibility).toEqual(['app'])
+                expect(tool._meta['ui/visibility']).toBeUndefined()
+                expect(tool._meta.ui.resourceUri).toBeUndefined()
+            })
+        })
+
         describe('EDS widget action', () => {
             test('eds-demo exposes widget metadata on the tool', async () => {
                 const result = await mcpPost(withMain, {
@@ -247,6 +266,7 @@ describe('MCP Apps Server', () => {
                 expect(tool._meta).toBeDefined()
                 expect(tool._meta.ui.resourceUri).toBe('ui://eds-demo/widget.html')
                 expect(tool._meta.ui.visibility).toEqual(['model', 'app'])
+                expect(tool._meta['ui/visibility']).toBeUndefined()
                 expect(tool._meta['ui/resourceUri']).toBe('ui://eds-demo/widget.html')
                 expect(tool._meta['openai/outputTemplate']).toBe('ui://eds-demo/widget.html')
                 expect(tool._meta['openai/resultCanProduceWidget']).toBe(true)
