@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0.0",
+  "mode": "full",
+  "commit_sha": "30d1d61483b7642ea20d7c066a413269dc1846cc",
+  "author": "84845933+xccatana@users.noreply.github.com",
+  "timestamp": "2026-10-20T14:54:15+03:00",
+  "detection": {
+    "ai_assisted": true,
+    "method": "heuristic",
+    "tool": "unknown",
+    "model": "",
+    "confidence": 0.8
+  },
+  "stats": {
+    "total_additions": 1,
+    "total_deletions": 1,
+    "ai_additions": 1,
+    "ai_deletions": 1,
+    "human_additions": 0,
+    "human_deletions": 0
+  },
+  "files": {
+    "package.json": {
+      "ai_additions": 1,
+      "human_additions": 0,
+      "ai_deletions": 1,
+      "human_deletions": 0
+    }
+  }
+}
