@@ -153,6 +153,62 @@ When you need a fully custom, self-contained widget, drop a `widget.html` file n
 
 During local dev you can round-trip a custom widget without the UI: the `widget.html` you commit wins over any EDS config.
 
+## ChatGPT Extensions
+
+ChatGPT/Codex adds host-specific capabilities on top of MCP + MCP Apps (the OpenAI
+[`mcp-extensions`](https://github.com/openai/mcp-extensions) spec). As with everything else,
+the **declarative** parts are authored in the Adobe LLM Apps UI (the *ChatGPT Extensions* tab)
+and materialized into `actions.json` `tool_meta` — you don't hand-edit them here:
+
+| Feature | Authored where | Handler work in this repo |
+|---|---|---|
+| UI entrypoints (global / settings / thread / file) | UI → `tool_meta["openai/ui"].entrypoints` | none (file entrypoints: see below) |
+| Preferred model display mode | UI → `tool_meta["openai/ui"].preferredModelDisplayMode` | none |
+| Composer @-mentions | UI toggle → `tool_meta["openai/extensions"]["mentions/search"]` | a handler returning `structuredContent.items[]` |
+| File extension handlers | UI → a `file` entrypoint with extensions | a handler using the runtime helpers + a widget |
+
+Two features need handler code, shown by the example actions in this repo:
+
+### File extension handler — `actions/open_csv/`
+
+Declare a **file** entrypoint (e.g. `.csv`) in the UI. When a user opens a matching file, the host
+calls your tool with `{ file: { name, resourceUri } }` and injects the trusted server-side path in
+`_meta["openai/resource"].path` (never exposed to the widget). Read them with the runtime helpers:
+
+```js
+const { getFileInput, getTrustedPath } = require('@adobe/llm-apps-runtime')
+
+module.exports = async (args, extra) => {
+  const file = getFileInput(args)          // { name, resourceUri } | null
+  const trustedPath = getTrustedPath(extra) // server-side only; never return to the widget
+  // ...
+}
+```
+
+The widget (`actions/open_csv/widget.html`) reads the file via `readResource(file.resourceUri)` and
+writes it back with `writeResource(uri, { text, ifMatch })` from
+[`@adobe/llmapps-sdk`](https://www.npmjs.com/package/@adobe/llmapps-sdk). The host proxies the
+read/write; only files opened through a file entrypoint are writable.
+
+### Composer mention search — `actions/search_mentions/`
+
+Enable *Composer mentions* for the action in the UI. The host calls your tool from the composer
+picker with `{ query }` and expects `structuredContent.items` of
+`{ type: 'resource', resourceUri, title, subtitle?, icons? }`:
+
+```js
+module.exports = async ({ query = '' } = {}) => ({
+  content: [],
+  structuredContent: { items: [{ type: 'resource', resourceUri: 'mcp://issues/APP-1', title: 'APP-1 …' }] }
+})
+```
+
+Deep links and host-to-app model context are **read** in handlers via `getDeepLink(extra)` /
+`getModelContext(extra)` (also from `@adobe/llm-apps-runtime`), and surfaced in widgets via the
+SDK's `getDeepLink()` / `getModelContext()` / `updateModelContext()`.
+
+> Requires `@adobe/llm-apps-runtime` ≥ 1.2.0 and `@adobe/llmapps-sdk` ≥ 0.2.0.
+
 ## Auth in actions
 
 Same split as everything else: **whether** an action requires auth lives in the UI, **how your handler uses the token** lives in code. See `actions/whoami/index.js` for a working reference.
