@@ -1,6 +1,6 @@
 {
   "name": "llm-apps-boilerplate",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "MCP Apps boilerplate for Adobe I/O Runtime -- build AI tools with interactive widgets",
   "scripts": {
     "test": "jest",
@@ -15,7 +15,7 @@
     "format": "prettier --write actions/"
   },
   "dependencies": {
-    "@adobe/llm-apps-runtime": "^1.2.0",
+    "@adobe/llm-apps-runtime": "^1.2.1",
     "webpack": "^5.89.0",
     "webpack-cli": "^5.1.4"
   },
