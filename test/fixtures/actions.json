@@ -53,11 +53,21 @@
         "prefersBorder": true
       },
       "tool_meta": {
-        "ui": {
-          "visibility": ["model", "app"]
-        },
+        "ui/visibility": ["model", "app"],
         "openai/toolInvocation/invoking": "Loading demo widget...",
         "openai/widgetAccessible": true
+      }
+    },
+    {
+      "name": "hidden-tool",
+      "title": "Hidden Tool",
+      "description": "Tool-only action (no widget) that restricts visibility to the app surface only.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "tool_meta": {
+        "ui/visibility": ["app"]
       }
     }
   ]
