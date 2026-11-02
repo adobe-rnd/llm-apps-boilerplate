@@ -361,7 +361,7 @@ describe('MCP Apps Server', () => {
             const body = JSON.parse(result.body)
             const names = body.result.tools.map(t => t.name)
 
-            expect(names).toEqual(['echo', 'greet', 'whoami'])
+            expect(names).toEqual(['echo', 'greet', 'open_csv', 'search_mentions', 'whoami'])
         })
 
         test('fallback tool uses folder name as description (no metadata)', async () => {
