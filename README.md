@@ -158,42 +158,68 @@ During local dev you can round-trip a custom widget without the UI: the `widget.
 ChatGPT/Codex adds host-specific capabilities on top of MCP + MCP Apps (the OpenAI
 [`mcp-extensions`](https://github.com/openai/mcp-extensions) spec). As with everything else,
 the **declarative** parts are authored in the Adobe LLM Apps UI (the *ChatGPT Extensions* tab)
-and materialized into `actions.json` `tool_meta` — you don't hand-edit them here:
+and materialized into `actions.json` (including `tool_meta`) — you don't hand-edit them here:
 
 | Feature | Authored where | Handler work in this repo |
 |---|---|---|
-| UI entrypoints (global / settings / thread / file) | UI → `tool_meta["openai/ui"].entrypoints` | none (file entrypoints: see below) |
+| UI entrypoints (global / thread / file) | UI → `tool_meta["openai/ui"].entrypoints` | none (file entrypoints: see below) |
 | Preferred model display mode | UI → `tool_meta["openai/ui"].preferredModelDisplayMode` | none |
-| Composer @-mentions | UI toggle → `tool_meta["openai/extensions"]["mentions/search"]` | a handler returning `structuredContent.items[]` |
+| Composer @-mentions | UI toggle → `mentionSearch: true`, read-only annotation + app visibility | a handler returning `structuredContent.items[]` |
 | File extension handlers | UI → a `file` entrypoint with extensions | a handler using the runtime helpers + a widget |
+
+Global entrypoints may include a `quickAction` with a title, at least one icon,
+and a tool target. The removed `settings` entrypoint is not supported.
 
 Two features need handler code, shown by the example actions in this repo:
 
 ### File extension handler — `actions/open_csv/`
 
 Declare a **file** entrypoint (e.g. `.csv`) in the UI. When a user opens a matching file, the host
-calls your tool with `{ file: { name, resourceUri } }` and injects the trusted server-side path in
-`_meta["openai/resource"].path` (never exposed to the widget). Read them with the runtime helpers:
+calls your tool with `{ file: { name, resourceUri } }`. Read the file input with the runtime helper:
 
 ```js
-const { getFileInput, getTrustedPath } = require('@adobe/llm-apps-runtime')
+const { getFileInput } = require('@adobe/llm-apps-runtime')
 
-module.exports = async (args, extra) => {
+module.exports = async (args) => {
   const file = getFileInput(args)          // { name, resourceUri } | null
-  const trustedPath = getTrustedPath(extra) // server-side only; never return to the widget
   // ...
 }
 ```
 
-The widget (`actions/open_csv/widget.html`) reads the file via `readResource(file.resourceUri)` and
-writes it back with `writeResource(uri, { text, ifMatch })` from
-[`@adobe/llmapps-sdk`](https://www.npmjs.com/package/@adobe/llmapps-sdk). The host proxies the
-read/write; only files opened through a file entrypoint are writable.
+Optional `_meta["openai/resource"].path` is **untrusted client input**, not proof of
+authorization or a path on Adobe I/O Runtime. `getResourcePath(extra)` reads it;
+`getTrustedPath` is a deprecated alias. Never use it directly for filesystem access
+or return it to the widget.
+
+The widget (`actions/open_csv/widget.html`) awaits `app.toolResult`, reads the matching
+resource via `readResource(uri, { representation: 'text' })`, and checks
+`content.openaiMetadata.writable === true`. It requires a non-empty read ETag and passes
+it to `writeResource(uri, { text, ifMatch })` from
+[`@adobe/llmapps-sdk`](https://www.npmjs.com/package/@adobe/llmapps-sdk). Only `saved`
+means success; conflicts require reloading/reconciling, not retrying without `ifMatch`.
+Read-only files, missing ETags, size limits and host errors are surfaced in the widget.
+
+File-entrypoint read/write is **host-managed**, not a custom remote-server method.
+For application-owned mutations, expose a normal action through `tools/call` so
+runtime authentication, tool-result metadata and analytics apply.
 
 ### Composer mention search — `actions/search_mentions/`
 
-Enable *Composer mentions* for the action in the UI. The host calls your tool from the composer
-picker with `{ query }` and expects `structuredContent.items` of
+Enable *Composer mentions* for exactly one action in the UI. Its generated config must include:
+
+```json
+{
+  "name": "search_mentions",
+  "mentionSearch": true,
+  "annotations": { "readOnlyHint": true },
+  "tool_meta": { "ui": { "visibility": ["app"] } }
+}
+```
+
+The runtime advertises `capabilities.extensions["openai/mentions"].searchTool`;
+invalid or ambiguous provider configuration fails explicitly. The legacy
+`tool_meta["openai/extensions"]["mentions/search"]` tag is deprecated.
+The host calls your tool from the composer picker with `{ query }` and expects `structuredContent.items` of
 `{ type: 'resource', resourceUri, title, subtitle?, icons? }`:
 
 ```js
@@ -203,11 +229,17 @@ module.exports = async ({ query = '' } = {}) => ({
 })
 ```
 
-Deep links and host-to-app model context are **read** in handlers via `getDeepLink(extra)` /
-`getModelContext(extra)` (also from `@adobe/llm-apps-runtime`), and surfaced in widgets via the
-SDK's `getDeepLink()` / `getModelContext()` / `updateModelContext()`.
+MCP `{ type: 'resource_link', uri, name }` items are also supported. Replace the
+demo catalog with your backend and register referenced resources so the host can resolve them.
 
-> Requires `@adobe/llm-apps-runtime` ≥ 1.2.0 and `@adobe/llmapps-sdk` ≥ 0.2.0.
+Deep links and host-to-app model context arrive in the widget's `hostContext`, not
+automatically in server tool calls. The SDK's `getDeepLink()` returns `{ url }` or
+`null`; `getModelContext()` preserves absent (`undefined`) versus cleared (`null`).
+`updateModelContext()` accepts a string or `{ content?, structuredContent? }` and
+resolves with `{ updateId?, raw }`. Runtime `getDeepLink(extra)` / `getModelContext(extra)`
+only read state a client explicitly forwards in request `_meta`.
+
+> Uses `@adobe/llm-apps-runtime` ≥ 1.3.0 and `@adobe/llmapps-sdk` 0.2.1.
 
 ## Auth in actions
 

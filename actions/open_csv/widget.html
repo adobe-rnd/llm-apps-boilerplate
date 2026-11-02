@@ -15,62 +15,149 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
-      body { font-family: system-ui, sans-serif; margin: 0; padding: 12px; }
-      textarea { width: 100%; min-height: 200px; box-sizing: border-box; font-family: monospace; }
-      .row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
-      .status { color: #6b7280; font-size: 13px; }
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 0;
+        padding: 12px;
+      }
+      textarea {
+        width: 100%;
+        min-height: 200px;
+        box-sizing: border-box;
+        font-family: monospace;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-top: 8px;
+      }
+      .status {
+        color: #6b7280;
+        font-size: 13px;
+      }
     </style>
   </head>
   <body>
     <div id="name" class="status">Loading…</div>
-    <textarea id="editor" aria-label="File contents"></textarea>
+    <textarea id="editor" aria-label="File contents" readonly></textarea>
     <div class="row">
-      <button id="save" type="button">Save</button>
-      <span id="status" class="status"></span>
+      <button id="save" type="button" disabled>Save</button>
+      <button id="reload" type="button" disabled>
+        Reload file (discard edits)
+      </button>
+      <span id="status" class="status" role="status"></span>
     </div>
 
     <script type="module">
-      import { createApp } from 'https://esm.sh/@adobe/llmapps-sdk';
+      import { createApp } from "https://esm.sh/@adobe/llmapps-sdk@0.2.1";
 
-      const nameEl = document.getElementById('name');
-      const editor = document.getElementById('editor');
-      const statusEl = document.getElementById('status');
-      const saveBtn = document.getElementById('save');
+      const nameEl = document.getElementById("name");
+      const editor = document.getElementById("editor");
+      const statusEl = document.getElementById("status");
+      const saveBtn = document.getElementById("save");
+      const reloadBtn = document.getElementById("reload");
 
+      let app;
       let resourceUri = null;
       let etag = null;
+      let canSave = false;
 
-      const app = await createApp({ appInfo: { name: 'open-csv', version: '1.0.0' } });
+      async function loadFile() {
+        canSave = false;
+        saveBtn.disabled = true;
+        reloadBtn.disabled = true;
+        editor.readOnly = true;
+        etag = null;
+        statusEl.textContent = "Loading…";
+        try {
+          const { contents } = await app.readResource(resourceUri, {
+            representation: "text",
+          });
+          const content = contents.find((item) => item.uri === resourceUri);
+          if (typeof content?.text !== "string") {
+            throw new Error("The host did not return text for this file.");
+          }
+          editor.value = content.text;
+          if (content.openaiMetadata?.writable !== true) {
+            statusEl.textContent = "This file is read-only.";
+            return;
+          }
+          etag = content.openaiMetadata.etag;
+          if (typeof etag !== "string" || etag.length === 0) {
+            throw new Error(
+              "The host did not provide an ETag. Saving is disabled to protect concurrent edits.",
+            );
+          }
+          canSave = true;
+          editor.readOnly = false;
+          statusEl.textContent = "";
+        } catch (error) {
+          statusEl.textContent = `Could not load file: ${error.message}`;
+        } finally {
+          saveBtn.disabled = !canSave;
+          reloadBtn.disabled = false;
+        }
+      }
 
-      // The host delivers the initial tool result (the { file } we returned) so
-      // the widget can render without re-calling the tool.
-      app.ontoolresult = async (result) => {
-        const file = result?.structuredContent?.file;
-        if (!file) return;
-        resourceUri = file.resourceUri;
-        nameEl.textContent = file.name;
-        const res = await app.readResource(resourceUri);
-        const content = res?.contents?.[0] ?? {};
-        editor.value = content.text ?? '';
-        etag = content?._meta?.['openai/resource']?.etag ?? null;
-      };
+      reloadBtn.addEventListener("click", loadFile);
 
-      saveBtn.addEventListener('click', async () => {
-        if (!resourceUri) return;
-        statusEl.textContent = 'Saving…';
-        const out = await app.writeResource(resourceUri, {
-          text: editor.value,
-          ...(etag ? { ifMatch: etag } : {})
-        });
-        if (out.outcome === 'saved') {
-          etag = out.etag;
-          statusEl.textContent = 'Saved.';
-        } else if (out.outcome === 'conflict') {
-          statusEl.textContent = 'The file changed elsewhere — reload before saving.';
-        } else {
-          statusEl.textContent = `Too large (max ${out.maxBytes} bytes).`;
+      saveBtn.addEventListener("click", async () => {
+        if (!canSave || saveBtn.disabled) return;
+        saveBtn.disabled = true;
+        reloadBtn.disabled = true;
+        editor.readOnly = true;
+        statusEl.textContent = "Saving…";
+        try {
+          const out = await app.writeResource(resourceUri, {
+            text: editor.value,
+            ifMatch: etag,
+          });
+          if (out.outcome === "saved") {
+            if (typeof out.etag !== "string" || out.etag.length === 0) {
+              canSave = false;
+              throw new Error(
+                "The host did not return an ETag. Reload before saving again.",
+              );
+            }
+            etag = out.etag;
+            statusEl.textContent = "Saved.";
+          } else if (out.outcome === "conflict") {
+            canSave = false;
+            statusEl.textContent =
+              "The file changed elsewhere — copy your edits, then reload before saving.";
+          } else if (out.outcome === "too-large") {
+            statusEl.textContent = `Too large (max ${out.maxBytes} bytes).`;
+          } else {
+            throw new Error("The host returned an unexpected save result.");
+          }
+        } catch (error) {
+          statusEl.textContent = `Could not save file: ${error.message}`;
+        } finally {
+          saveBtn.disabled = !canSave;
+          reloadBtn.disabled = false;
+          editor.readOnly = !canSave;
         }
       });
+
+      try {
+        app = await createApp({
+          appInfo: { name: "open-csv", version: "1.0.0" },
+        });
+        const result = await app.toolResult;
+        const file = result?.structuredContent?.file;
+        if (result?.isError || !file) {
+          throw new Error(
+            result?.content?.find((item) => item.type === "text")?.text ||
+              "No file was provided to open.",
+          );
+        }
+        resourceUri = file.resourceUri;
+        nameEl.textContent = file.name;
+        await loadFile();
+      } catch (error) {
+        statusEl.textContent = `Could not open file: ${error.message}`;
+      }
     </script>
   </body>
 </html>

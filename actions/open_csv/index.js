@@ -17,40 +17,32 @@ governing permissions and limitations under the License.
  * (ChatGPT Extensions tab -> Entrypoints -> File, extensions: .csv). When a user
  * opens a matching file in ChatGPT/Codex desktop, the host calls this tool with
  *   { file: { name, resourceUri } }
- * and injects the trusted server-side filesystem path in
- *   _meta["openai/resource"].path
- * which the host never exposes to the sandboxed widget iframe.
+ * The optional _meta["openai/resource"].path is untrusted client metadata,
+ * not a path on Adobe I/O Runtime or proof of authorization. Never use it
+ * directly for filesystem access or return it to the widget.
  *
  * The widget (widget.html) reads the file via the host using file.resourceUri
  * and can write it back with the SDK's writeResource(). This handler just
- * surfaces the file info + a preview for the initial render.
+ * surfaces the file info for the initial render. File I/O is host-managed;
+ * application-owned mutations should use a normal authenticated action.
  *
  * Tool metadata (title, description, inputSchema, entrypoints) lives in the
  * llm-apps UI and is materialized into actions.json at build time.
  */
 
-const { getFileInput, getTrustedPath } = require('@adobe/llm-apps-runtime')
+const { getFileInput } = require('@adobe/llm-apps-runtime')
 
-module.exports = async (args, extra) => {
+module.exports = async (args) => {
     const file = getFileInput(args)
     if (!file) {
         return {
+            isError: true,
             content: [{ type: 'text', text: 'No file was provided to open.' }]
         }
     }
 
-    // The trusted path is server-side only (never returned to the widget). Use
-    // it if you need to read sibling files or enforce a filesystem policy.
-    const trustedPath = getTrustedPath(extra)
-
     return {
         content: [{ type: 'text', text: `Opened ${file.name}` }],
-        structuredContent: {
-            file,
-            // Do NOT put trustedPath in structuredContent in a real app — it
-            // would leak the host path to the iframe. Shown here only to
-            // illustrate that the handler (server-side) can see it.
-            hasTrustedPath: Boolean(trustedPath)
-        }
+        structuredContent: { file }
     }
 }

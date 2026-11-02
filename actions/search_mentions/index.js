@@ -15,8 +15,11 @@ governing permissions and limitations under the License.
  * extensions).
  *
  * Enable "Composer mentions" for this action in the Adobe LLM Apps UI (ChatGPT
- * Extensions tab) — that sets tool_meta["openai/extensions"]["mentions/search"].
- * The host then calls this tool from the composer picker with:
+ * Extensions tab). The action must have mentionSearch: true,
+ * annotations.readOnlyHint: true and tool_meta.ui.visibility including "app".
+ * Configure exactly one provider; the runtime advertises it through
+ * capabilities.extensions["openai/mentions"].searchTool.
+ * The host calls this tool from the composer picker with:
  *   { query: string }   // may be empty
  * and expects:
  *   structuredContent.items: Array<{ type: 'resource', resourceUri, title,
