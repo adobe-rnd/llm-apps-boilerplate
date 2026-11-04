@@ -167,8 +167,7 @@ and materialized into `actions.json` (including `tool_meta`) — you don't hand-
 | Composer @-mentions | UI toggle → `mentionSearch: true`, read-only annotation + app visibility | a handler returning `structuredContent.items[]` |
 | File extension handlers | UI → a `file` entrypoint with extensions | a handler using the runtime helpers + a widget |
 
-Global entrypoints may include a `quickAction` with a title, at least one icon,
-and a tool target. The removed `settings` entrypoint is not supported.
+The removed `settings` entrypoint is not supported.
 
 Two features need handler code, shown by the example actions in this repo:
 
