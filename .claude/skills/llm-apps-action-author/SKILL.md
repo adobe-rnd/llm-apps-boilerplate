@@ -47,6 +47,11 @@ The deploy pipeline then writes a fresh `actions.json` from the DB and builds.
 
 If the user asks you to "set the description of my tool", "add CSP domains", or "change the inputSchema" -- **tell them to do it in the UI**, then re-download `actions.json`.
 
+The runtime forwards only allowlisted protocol metadata, not internal authoring
+fields. Widget links and security schemes are runtime-generated. Global
+`quickAction` and `settings` entrypoints are unsupported and dropped. See the
+[schema reference](references/actions-json-schema.md#tool-meta) before suggesting metadata.
+
 ## Decision tree: which action shape?
 
 ```
@@ -104,6 +109,7 @@ Rules that matter:
 - **Handler must be an async function** (or an ESM `default` export of one). `{ schema, handler }` shapes are **not** accepted.
 - **No `require` of the MCP SDK in your handler.** The loader wires everything; you just return data.
 - **Do not import `actions.json`** from your handler -- metadata is not your concern.
+- The runtime appends shared UI guidance as an `additionalInstructions` JSON text block through `tools/call`; do not add a generic UI-instruction wrapper. Keep app-specific guidance. Direct handler tests bypass this enrichment.
 - Validate `args` yourself if your handler has invariants beyond the input schema (the schema lives in the UI; what it allows may be broader than what your code handles).
 - **Never log secrets** (tokens, Authorization headers, PII). `console.log` output in I/O Runtime is retained.
 - **Never execute dynamic code** (`eval`, `new Function`, dynamic `require(userInput)`). App Builder security rules forbid this.
@@ -200,9 +206,13 @@ npm test
 | Field | Required | Consumer | Shape |
 |---|---|---|---|
 | `content` | **Yes** | LLM / text-only hosts | Array of content parts, e.g. `[{ type: 'text', text: '...' }]` |
-| `structuredContent` | No | Widget iframe | Plain object. **Not** a bare array -- wrap it: `{ items: [...] }` |
+| `structuredContent` | No | Clients and widgets; model visibility depends on the host | Plain object. **Not** a bare array -- wrap it: `{ items: [...] }` |
 
-The LLM never sees `structuredContent`. The widget never sees `content` directly (it can call `window.openai.toolOutput` to read `structuredContent`). Always return `content` as the fallback; add `structuredContent` when you have a widget.
+Do not assume `structuredContent` is hidden from the model; never put secrets in
+it. Widgets can read it through `window.openai.toolOutput`. Always return `content`
+as the fallback; add `structuredContent` when clients or widgets need structured
+data. Protocol consumers must tolerate the runtime's extra instruction content
+block; the original handler data remains intact.
 
 ## Troubleshooting
 
