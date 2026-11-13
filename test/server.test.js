@@ -338,6 +338,43 @@ describe('MCP Apps Server', () => {
                 expect(body.result.content[0].text).toBe('')
                 expect(body.result.structuredContent).toEqual({})
             })
+
+            test('eds-demo tool result carries the widget resource link (Gemini)', async () => {
+                const result = await mcpPost(withMain, {
+                    jsonrpc: '2.0',
+                    id: 35,
+                    method: 'tools/call',
+                    params: { name: 'eds-demo', arguments: {} }
+                })
+
+                const body = JSON.parse(result.body)
+                expect(body.result._meta.ui).toEqual({ resourceUri: 'ui://eds-demo/widget.html' })
+                expect(body.result._meta['ui/resourceUri']).toBe('ui://eds-demo/widget.html')
+            })
+
+            test('eds-demo widget template: inline bundle for Gemini, live loader for other hosts', async () => {
+                const read = async userAgent => {
+                    const result = await withMain({
+                        __ow_method: 'post',
+                        __ow_body: JSON.stringify({ jsonrpc: '2.0', id: 36, method: 'resources/read', params: { uri: 'ui://eds-demo/widget.html' } }),
+                        __ow_headers: {
+                            'content-type': 'application/json',
+                            accept: 'application/json;q=1.0, text/event-stream;q=0.5',
+                            'user-agent': userAgent
+                        },
+                        LOG_LEVEL: 'info'
+                    })
+                    return JSON.parse(result.body).result.contents[0].text
+                }
+
+                const gemini = await read('Google-Gemini')
+                expect(gemini).toContain('/* bundled eds-demo */')
+                expect(gemini).not.toContain('<script src=')
+
+                const chatgpt = await read('openai-mcp/1.0.0')
+                expect(chatgpt).toContain('src="https://example.aem.page/scripts/aem-embed.js"')
+                expect(chatgpt).not.toContain('bundled eds-demo')
+            })
         })
     })
 

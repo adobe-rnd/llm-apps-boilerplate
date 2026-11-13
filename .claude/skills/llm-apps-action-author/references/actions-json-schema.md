@@ -40,6 +40,7 @@ This file is **gitignored**. Do not hand-edit it.
 | `widget_type` | `"EDS"` or omitted | If `"EDS"`, the loader generates an `<aem-embed>` template for the widget resource. Ignored when a `widget.html` file exists in the action directory. |
 | `eds_widget.script_url` | string | URL to the AEM Edge Delivery `aem-embed.js` script. |
 | `eds_widget.widget_embed_url` | string | URL the `<aem-embed>` element loads. |
+| `eds_widget.bundled_html` | string | Written by the deploy pipeline, never by hand: the EDS widget with its JavaScript inlined, served only to Gemini. |
 | `tool_meta` | object | Stored configuration projected onto the tool's allowlisted `_meta` fields. See [Tool meta](#tool-meta). |
 | `resource_meta` | object | Stored configuration projected onto the widget resource's allowlisted `_meta` fields. See [Resource meta](#resource-meta). |
 
