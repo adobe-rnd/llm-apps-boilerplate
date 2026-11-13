@@ -147,6 +147,14 @@ Just a handler, no widget file, no EDS config. The tool returns text; the host s
 
 No local file needed. Configure `widget_type: "EDS"` and `eds_widget.script_url` + `eds_widget.widget_embed_url` in the UI; the loader generates an `<aem-embed>` template automatically. Use this when the widget is an AEM Edge Delivery page.
 
+**Gemini.** Gemini's widget sandbox blocks external scripts, so the deploy pipeline also writes a self-contained copy of each EDS widget, with its JavaScript inlined, as `eds_widget.bundled_html` in the generated `actions.json`. The runtime (≥ 1.5.0) serves it only to Gemini; ChatGPT, Claude and other hosts keep loading the widget live from EDS. Consequences in Gemini:
+
+- Widget JavaScript is the copy from the last deploy. Page content, CSS and images still load live from EDS.
+- A block added to the widget page after a deploy renders in Gemini only after the next deploy.
+- A committed `widget.html` still wins over EDS for every host, including Gemini.
+
+You never write `bundled_html` yourself; it is build output, like the rest of `actions.json`.
+
 ### Custom HTML widget
 
 When you need a fully custom, self-contained widget, drop a `widget.html` file next to your `index.js`. It's inlined into the `ui://<name>/widget.html` resource at build time. The file must be self-contained — use inline `<script>` blocks, not external bundles that need webpack to resolve. See the [MCP Apps examples](https://modelcontextprotocol.github.io/ext-apps/api/documents/Examples.html) for the postMessage contract between your widget and the host.
@@ -271,6 +279,8 @@ In the llm-apps UI, per action you can set:
 - `scopes: [...]` — a token must carry all of these to reach your handler.
 
 And at the app level, an `auth` block (issuer, JWKS URI, resource, supported scopes) that describes the identity provider you're trusting. Both are UI-only concerns — nothing to configure in this repo.
+
+If **every** action requires auth, Gemini can still list the tools and read the widget templates without a token (it discovers apps that way); calling a tool always needs a valid token. Because anyone can claim to be Gemini, treat tool descriptions and widget templates as public: never put secrets or user data in them.
 
 When both are set, the runtime verifies the caller's bearer token (signature, issuer, audience, expiry) **before** your handler ever runs, and forwards the result as the handler's second argument:
 

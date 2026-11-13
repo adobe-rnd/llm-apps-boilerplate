@@ -43,6 +43,8 @@ Given the UI config, the loader synthesizes this `widget.html`:
 
 It then registers a `ui://<name>/widget.html` resource with `mimeType: text/html;profile=mcp-app` and attaches the `resource_meta` you configured under `_meta.ui`.
 
+For Gemini, whose widget sandbox blocks external scripts, the deploy pipeline also writes `eds_widget.bundled_html`: the same widget with its JavaScript inlined at deploy time. The runtime serves it only to Gemini (by user-agent); other hosts get the template above. In Gemini, widget JavaScript is therefore frozen at the last deploy, while page content, CSS and images stay live, and a block added to the page later renders only after the next deploy. Never hand-write `bundled_html`.
+
 You do **not** create any file locally for EDS widgets. No `widget.html` file. If you accidentally create one, it will win over the EDS config (widget.html file > EDS config > no widget) -- delete it.
 
 ## Fallback behavior

@@ -43,7 +43,8 @@
       "widget_type": "EDS",
       "eds_widget": {
         "script_url": "https://example.aem.page/scripts/aem-embed.js",
-        "widget_embed_url": "https://example.aem.page/eds-widgets/demo"
+        "widget_embed_url": "https://example.aem.page/eds-widgets/demo",
+        "bundled_html": "<script type=\"module\">/* bundled eds-demo */</script>\n<div><aem-embed url=\"https://example.aem.page/eds-widgets/demo\"></aem-embed></div>\n"
       },
       "resource_meta": {
         "csp": {
