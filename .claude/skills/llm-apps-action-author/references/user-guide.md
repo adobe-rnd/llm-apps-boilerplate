@@ -16,7 +16,8 @@ Fill every `<placeholder>` you can:
 |---|---|
 | `<id>` | The action's Code identifier |
 | `<owner>` / `<eds-repo>` | `git -C <eds-repo-path> remote get-url origin` (e.g. `git@github.com:adobe-llm-apps/my-app-eds.git` -> owner `adobe-llm-apps`, repo `my-app-eds`) |
-| `<page-path>` | Suggest `/<id>`; the user may pick another |
+| `<page-path>` | `/eds-widgets/<id>-demo`, the convention of generated actions; the user may pick another |
+| `<eds-origin>` | `https://main--<eds-repo>--<owner>.aem.page` (the origin generated actions use). The EDS site name can differ from the GitHub repo name: if the URL doesn't load, ask the user for the site origin |
 | `<api-origins>` | Every origin the block or handler-returned URLs load from (images, fetch). None for static widgets |
 
 ## 1. Create the action in the llm-apps UI
@@ -75,16 +76,16 @@ Send the variant that matches the action, with all values filled in. Include the
 >
 >    The header cell must be exactly `<id>`: that's how EDS knows to load the block.
 >    **Preview**, then **Publish** the page.
->    Check it: `https://main--<eds-repo>--<owner>.aem.live<page-path>` should render the widget
+>    Check it: `<eds-origin><page-path>` should render the widget
 >    with its sample data.
 > 3. **Point the action at the page.** LLM Apps > your app > **Actions** > `<id>` >
 >    **LLM Widget details**:
 >    - **Widget type**: *Edge Delivery Services block*
 >    - **Widget domain**: your app's widget sandbox origin (required to submit the app; unique per app)
 >    - **Widget description**: one sentence on what the widget shows, so the AI doesn't repeat it
->    - **Template URLs** > **Script URL**: `https://main--<eds-repo>--<owner>.aem.live/scripts/aem-embed.js`
->    - **Template URLs** > **Widget URL**: `https://main--<eds-repo>--<owner>.aem.live<page-path>`
->    - **CSP Configuration**: add `https://main--<eds-repo>--<owner>.aem.live` to connect and
+>    - **Template URLs** > **Script URL**: `<eds-origin>/scripts/aem-embed.js`
+>    - **Template URLs** > **Widget URL**: `<eds-origin><page-path>`
+>    - **CSP Configuration**: add `<eds-origin>` to connect and
 >      resource domains, plus `<api-origins>`
 >    - In **Action details** > **LLM settings**, make sure **Show as widget in app surface** is on.
 >

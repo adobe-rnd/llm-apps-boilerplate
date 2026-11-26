@@ -64,11 +64,11 @@ Next steps (EDS repo):
   4. Push the EDS repo (merging to main ships the block code).
 
 Then the USER must (not doable from code):
-  5. Create and publish an EDS page whose only content is a block table named
+  5. Create and publish an EDS page at /eds-widgets/$ACTION_NAME-demo whose only content is a block table named
      "$ACTION_NAME" (one header row "$ACTION_NAME", one empty row).
   6. In the llm-apps UI > action > LLM Widget details: Widget type "Edge Delivery Services block",
-     Script URL  https://main--<repo>--<owner>.aem.live/scripts/aem-embed.js
-     Widget URL  https://main--<repo>--<owner>.aem.live/<page-path>
+     Script URL  https://main--<repo>--<owner>.aem.page/scripts/aem-embed.js
+     Widget URL  https://main--<repo>--<owner>.aem.page/eds-widgets/$ACTION_NAME-demo
      and add the EDS origin to the CSP domains.
   Full filled-in instructions: references/user-guide.md (section 2).
 EOF
