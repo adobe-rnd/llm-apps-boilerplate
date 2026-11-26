@@ -1,38 +1,106 @@
 # EDS widgets
 
-EDS = AEM Edge Delivery Services. An EDS widget renders an AEM-authored page inside the MCP widget iframe via the `<aem-embed>` custom element.
+EDS = AEM Edge Delivery Services. An LLM App's EDS widget is an **EDS block** that lives in
+the app's **EDS repo** (a separate git repo, usually a sibling named `<handler-repo>-eds`),
+placed on a published EDS page. The LLM host loads that page through `scripts/aem-embed.js`,
+which renders the block and passes it an MCP bridge carrying the handler's `structuredContent`.
 
-## When to pick EDS
+```
+handler repo                          EDS repo                         EDS content (DA / SharePoint)
+actions/<id>/index.js   ──tool──▶     blocks/<id>/<id>.js + .css  ◀──  page containing a "<id>" block
+returns structuredContent             decorate(block, bridge)          URL = Widget URL in the UI
+```
 
-Pick EDS when:
+Three pieces, three owners:
 
-- The widget content lives in AEM and is authored by a non-developer (content/marketing team).
-- You want the widget to update without shipping new code.
-- The visuals match an existing AEM-published page or fragment.
+| Piece | Where | Who |
+|---|---|---|
+| Handler (`content` + `structuredContent`) | handler repo `actions/<id>/index.js` | developer (this skill) |
+| Block (renders `structuredContent`) | EDS repo `blocks/<id>/<id>.{js,css}` | developer (this skill) |
+| Page invoking the block + widget config | EDS content source + llm-apps UI | **user** (cannot be done from code) |
 
-Do **not** pick EDS when:
+## Naming
 
-- The widget has interactive logic driven by `structuredContent`. EDS pages are generally static.
-- You need tight coupling between the tool's output and the widget's UI.
-- You need custom CSP beyond script/connect domains (custom HTML gives more control).
+The block name **must equal the action's Code identifier** (`<id>`). The page invokes the block
+by name, and `aem-embed.js` loads `/blocks/<id>/<id>.js` and `/blocks/<id>/<id>.css`.
 
-## UI fields you configure
+## Block contract
 
-In the llm-apps UI for the action:
+```js
+export default async function decorate(block, bridge) { ... }
+```
 
-| Field | Purpose |
+Bridge members used by blocks (full surface: `scripts/llmapps-sdk.d.ts` and the header of
+`scripts/aem-embed.js` in the EDS repo):
+
+| Member | Purpose |
 |---|---|
-| `widget_type` | Set to `EDS` |
-| `eds_widget.script_url` | URL to the AEM Edge Delivery `aem-embed.js` script |
-| `eds_widget.widget_embed_url` | URL the `<aem-embed>` element loads |
-| `resource_meta.csp.connectDomains` | At minimum, the origin of `widget_embed_url` |
-| `resource_meta.csp.resourceDomains` | Same origin + any CDN the EDS page loads from |
+| `bridge.isConnected` | `true` when running inside a host |
+| `bridge.hostContext` | `theme`, `locale`, `displayMode`, ...; `preview === true` in the preview harness |
+| `bridge.toolResult` | Promise of the first tool result; read `.structuredContent` |
+| `bridge.onToolResult(cb)` | Every tool result, for widgets reused across calls |
+| `bridge.onContextChange(cb)` | Theme / display changes |
+| `bridge.autoResize(el)` | Keeps the host iframe sized to the block |
+| `bridge.callTool(name, args)` | Call another action from the widget |
+| `bridge.sendMessage(text)` | Send a follow-up user message |
+| `bridge.openLink(url)` | Open a link through the host |
 
-Both URLs must be served over HTTPS. The pipeline will reject `http://` URLs.
+Canonical pattern (used by every generated block in the EDS repo and by
+`assets/eds-block-template.js`):
 
-## What the loader generates
+```js
+const PREVIEW_RESULT = { /* sample structuredContent */ };
 
-Given the UI config, the loader synthesizes this `widget.html`:
+export default async function decorate(block, bridge) {
+  const connected = bridge?.isConnected === true;
+  const live = connected && bridge.hostContext?.preview !== true;
+  let result = PREVIEW_RESULT;
+  if (live) {
+    try {
+      result = (await bridge.toolResult)?.structuredContent || {};
+    } catch (e) {
+      result = {};
+    }
+  }
+  render(block, result);
+  if (connected) bridge.autoResize(block);
+}
+```
+
+Rules:
+
+- The block's expected shape **is** the handler's `structuredContent` shape. Change both together.
+- Keep `PREVIEW_RESULT` shaped like real `structuredContent`; it is what authors see in preview.
+- Render values with `textContent` / `createElement`, never `innerHTML` with tool data.
+- Handle the empty state (`{}` or empty arrays): the handler may return no data.
+- Scope CSS under `.<id>`; support `[data-theme="dark"]`.
+- No imports other than `/scripts/...` (EDS repo `AGENTS.md`). No build step.
+- Gemini serves a deploy-time bundled copy of the widget JS (`eds_widget.bundled_html`), so
+  block JS changes reach Gemini only after the next app deploy.
+
+## Preview the block locally (no page needed)
+
+From the EDS repo:
+
+```bash
+npx -y @adobe/aem-cli up
+open "http://localhost:3000/tools/widget-preview.html?block=<id>"
+npm run lint
+```
+
+`tools/widget-preview.html` mounts the block with a preview bridge
+(`hostContext.preview === true`), so it renders `PREVIEW_RESULT`.
+
+## What the user must do
+
+Publishing the page, setting the widget URLs/CSP in the UI and deploying are done by the user.
+Send them the filled-in hand-off message from [user-guide.md §2](user-guide.md#2-hand-off-message-after-the-code-is-done).
+The repo's `content/<id>-demo.plain.html` files show the page markup but are **not** published content.
+
+## What the runtime generates
+
+From the UI config the loader synthesizes the widget resource (`ui://<id>/widget.html`,
+`mimeType: text/html;profile=mcp-app`):
 
 ```html
 <script src="<script_url>" type="module"></script>
@@ -41,33 +109,13 @@ Given the UI config, the loader synthesizes this `widget.html`:
 </div>
 ```
 
-It then registers a `ui://<name>/widget.html` resource with `mimeType: text/html;profile=mcp-app` and attaches the `resource_meta` you configured under `_meta.ui`.
+Do **not** create `actions/<id>/widget.html` for an EDS action: a `widget.html` file wins over
+the EDS config (widget.html > EDS config > no widget). Use `scaffold-action.sh --eds`, not `--widget`.
 
-For Gemini, whose widget sandbox blocks external scripts, the deploy pipeline also writes `eds_widget.bundled_html`: the same widget with its JavaScript inlined at deploy time. The runtime serves it only to Gemini (by user-agent); other hosts get the template above. In Gemini, widget JavaScript is therefore frozen at the last deploy, while page content, CSS and images stay live, and a block added to the page later renders only after the next deploy. Never hand-write `bundled_html`.
-
-You do **not** create any file locally for EDS widgets. No `widget.html` file. If you accidentally create one, it will win over the EDS config (widget.html file > EDS config > no widget) -- delete it.
-
-## Fallback behavior
-
-If `widget_type: "EDS"` is set but `eds_widget.script_url` or `eds_widget.widget_embed_url` is missing, the loader prints a warning and registers the tool with **no** widget. The tool still works as a tool-only action.
-
-Check your server logs on `npm run dev` for:
+If `widget_type: "EDS"` is set but either URL is missing, the loader logs
 
 ```
 ⚠ EDS widget for "<name>": missing script_url or widget_embed_url in eds_widget config
 ```
 
-If you see this, go back to the UI and fill in both URLs, then re-download `actions.json`.
-
-## Handler contract for EDS widgets
-
-An EDS widget has no built-in way to consume `structuredContent` -- the AEM page is just HTML. If the EDS page needs data from the tool call, the page script has to call back into the MCP server via `window.openai.callTool(...)`. In practice, most EDS widgets are pure-display and the handler is a no-op:
-
-```js
-module.exports = async () => ({
-  content: [{ type: 'text', text: 'Rendered in widget.' }],
-  structuredContent: {}
-})
-```
-
-Or the action has no handler folder at all and registers via the default handler.
+and registers the tool with no widget.

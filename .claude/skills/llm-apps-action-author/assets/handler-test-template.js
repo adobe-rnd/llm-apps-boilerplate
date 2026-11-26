@@ -10,11 +10,12 @@
  */
 
 const handler = require('../../actions/<ACTION_NAME>/index.js')
+// Example arguments, also used by check-action.js. Keep them realistic.
+const example = require('../fixtures/<ACTION_NAME>/example.json')
 
 describe('<ACTION_NAME> handler', () => {
     test('returns the MCP content-block shape', async () => {
-        // TODO: replace with realistic args matching your inputSchema.
-        const out = await handler({})
+        const out = await handler(example.arguments)
 
         expect(out).toHaveProperty('content')
         expect(Array.isArray(out.content)).toBe(true)
@@ -32,11 +33,11 @@ describe('<ACTION_NAME> handler', () => {
     //     expect(out.content[0].text).toMatch(/required/i)
     // })
     //
-    // If your handler returns structuredContent (widget case):
+    // If your handler returns structuredContent (widget case), pin the exact
+    // shape the EDS block renders, and keep it identical on error/empty branches:
     //
-    // test('structuredContent is a plain object, not an array', async () => {
-    //     const out = await handler({ city: 'London' })
-    //     expect(typeof out.structuredContent).toBe('object')
-    //     expect(Array.isArray(out.structuredContent)).toBe(false)
+    // test('structuredContent matches the widget contract', async () => {
+    //     const out = await handler(example.arguments)
+    //     expect(out.structuredContent).toEqual({ items: expect.any(Array), total: expect.any(Number) })
     // })
 })
