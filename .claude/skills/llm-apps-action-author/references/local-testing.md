@@ -162,5 +162,6 @@ Jest picks up `test/**/*.test.js` via the boilerplate's `jest.config.js`. Keep h
 - [ ] Widget HTML is self-contained (no `src="./..."`)
 - [ ] `npm test` passes
 - [ ] `npm run dev:local` (or `npm run dev`) shows the tool in `tools/list`
+- [ ] For EDS widgets: block previews at `/tools/widget-preview.html?block=<name>` and `npm run lint` passes in the EDS repo
 - [ ] For widgets: the host renders without CSP errors (check devtools)
 - [ ] No secrets in `console.log`, no hardcoded tokens

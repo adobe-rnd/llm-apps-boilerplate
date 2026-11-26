@@ -1,0 +1,37 @@
+.<ACTION_NAME> {
+  --block-surface: #fff;
+  --block-text: #0d0d0d;
+  --block-text-secondary: #5d5d5d;
+  --block-border: rgb(13 13 13 / 10%);
+
+  font-family: ui-sans-serif, -apple-system, system-ui, "Segoe UI", helvetica, arial, sans-serif;
+  color: var(--block-text);
+}
+
+.<ACTION_NAME>[data-theme="dark"] {
+  --block-surface: #212121;
+  --block-text: #fff;
+  --block-text-secondary: #afafaf;
+  --block-border: rgb(255 255 255 / 12%);
+}
+
+.<ACTION_NAME> .<ACTION_NAME>-card {
+  padding: 16px;
+  border: 1px solid var(--block-border);
+  border-radius: 12px;
+  background: var(--block-surface);
+}
+
+.<ACTION_NAME> .<ACTION_NAME>-title {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.5rem;
+}
+
+.<ACTION_NAME> .<ACTION_NAME>-message {
+  margin: 0;
+  color: var(--block-text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}

@@ -86,7 +86,8 @@ This repo ships a Claude skill at [`.claude/skills/llm-apps-action-author/`](.cl
 
 ### What it does
 
-- Scaffolds handler + optional `widget.html` from templates.
+- Scaffolds handler + test from the action's Code identifier and parameters, plus the EDS widget block in the companion EDS repo (or an optional `widget.html`).
+- Tells you the manual steps left: publish an EDS page invoking the block and set the widget URLs in the UI.
 - Validates the handler export shape and return contract.
 - Redirects you back to the UI whenever you try to edit metadata in code.
 - Explains widget resolution (`widget.html` > EDS config > tool-only).
@@ -98,6 +99,9 @@ This repo ships a Claude skill at [`.claude/skills/llm-apps-action-author/`](.cl
 
 - **Scaffold an action with a custom HTML widget.**
   > "Scaffold a new action `weather-lookup` with a widget. The handler should return a short text summary plus structured data for the widget."
+
+- **Implement an action you created in the UI, with its EDS block.**
+  > "I created the action `savings-calculator` (no parameters). Write its handler and a static EDS widget block in ../<this-repo>-eds."
 
 - **Fill in a handler you already scaffolded.**
   > "Implement the handler in `actions/currency-convert/index.js`. It should call `https://api.exchangerate.host/convert` and return the converted amount. Don't hand-edit `actions.json`."
@@ -130,7 +134,7 @@ node .claude/skills/llm-apps-action-author/scripts/validate-handler.js actions/w
 | Case | Handler | Widget source | Authored in |
 |---|---|---|---|
 | Tool only | required | — | handler code + UI metadata |
-| EDS widget | optional | `widget_type: "EDS"` + `eds_widget` in `actions.json` | UI only |
+| EDS widget | required | `blocks/<name>/` in the EDS repo, on a published page set as Widget URL (`widget_type: "EDS"` + `eds_widget`) | handler code + EDS block + EDS page + UI metadata |
 | Custom HTML widget | optional | `actions/<name>/widget.html` | handler code + `widget.html` file + UI metadata |
 
 **Resolution priority** (checked in order):
@@ -145,7 +149,7 @@ Just a handler, no widget file, no EDS config. The tool returns text; the host s
 
 ### EDS widget
 
-No local file needed. Configure `widget_type: "EDS"` and `eds_widget.script_url` + `eds_widget.widget_embed_url` in the UI; the loader generates an `<aem-embed>` template automatically. Use this when the widget is an AEM Edge Delivery page.
+No file in this repo. The widget is an EDS block `blocks/<name>/<name>.{js,css}` in the app's EDS repo, whose `decorate(block, bridge)` reads the handler's `structuredContent` from `bridge.toolResult`. Publish an EDS page that invokes the block, then configure `widget_type: "EDS"` and `eds_widget.script_url` (`…/scripts/aem-embed.js`) + `eds_widget.widget_embed_url` (the page URL) in the UI; the loader generates an `<aem-embed>` template automatically. See the skill's [EDS widget reference](.claude/skills/llm-apps-action-author/references/eds-widget.md).
 
 **Gemini.** Gemini's widget sandbox blocks external scripts, so the deploy pipeline also writes a self-contained copy of each EDS widget, with its JavaScript inlined, as `eds_widget.bundled_html` in the generated `actions.json`. The runtime (≥ 1.5.0) serves it only to Gemini; ChatGPT, Claude and other hosts keep loading the widget live from EDS. Consequences in Gemini:
 

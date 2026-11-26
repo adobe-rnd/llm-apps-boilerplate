@@ -1,15 +1,28 @@
 ---
 name: llm-apps-action-author
-description: Create and edit MCP tool handlers for the llm-apps Adobe I/O Runtime boilerplate. Use when the user asks to "add an action", "create an MCP tool", "scaffold a handler for llm-apps", "write a tool-only handler", "add a widget for my llm-app tool", or is working in a repo derived from the llm-apps boilerplate (has an `actions/` directory, `entry.js`, and depends on `@adobe/llm-apps-runtime`). Produces correctly shaped handlers (content + structuredContent), optional widget.html starters, explains the split-ownership model (handler code lives in-repo, metadata lives in the llm-apps UI), and shows how to smoke-test locally with `npm run dev:local` (no Adobe credentials) or `npm run dev` (Adobe I/O Runtime).
+description: Create and edit LLM Apps actions end to end — the MCP tool handler in this Adobe I/O Runtime repo AND its EDS widget block in the app's companion EDS repo. Use when the user asks to "add an action", "implement my new action", "create an MCP tool", "scaffold a handler", "write a tool-only handler", "add a widget/block for my llm-app action", or is working in a repo derived from the llm-apps boilerplate (has an `actions/` directory, `entry.js`, and depends on `@adobe/llm-apps-runtime`). Starts from the action's Code identifier and input parameters configured in the llm-apps UI, produces a correctly shaped handler (content + structuredContent) with tests, a matching EDS block (`decorate(block, bridge)`), and tells the user the remaining manual steps (publish an EDS page invoking the block, set the widget URLs in the UI). Covers local testing with `npm run dev:local` and the EDS block preview harness.
 metadata:
   author: Adobe llm-apps
-  version: 0.1.0
+  version: 0.2.0
   mcp-server: llm-apps
 ---
 
 # llm-apps-action-author
 
-Author handlers for MCP tools in repos derived from the **llm-apps boilerplate** (Adobe I/O Runtime). This skill keeps you on the happy path: correct handler shape, correct return contract, correct widget resolution, correct local test loop.
+Author actions for apps built on the **llm-apps boilerplate** (Adobe I/O Runtime). This skill keeps you on the happy path: correct handler shape, correct return contract, a widget block that reads that contract, correct local test loop, and a clear hand-off of the steps only the user can do.
+
+## What an LLM App is (30-second model)
+
+An LLM App is an MCP server that LLM hosts (ChatGPT, Claude, Gemini, ...) call. Each **action** is one MCP tool. An app has **two git repos**:
+
+| Repo | Contains | Per action |
+|---|---|---|
+| Handler repo (this one) | `actions/<id>/index.js` running on I/O Runtime | handler + `test/actions/<id>.test.js` |
+| EDS repo (usually a sibling folder named `<this-repo>-eds`) | AEM Edge Delivery site; widgets are EDS blocks | `blocks/<id>/<id>.js` + `.css` |
+
+Plus the **llm-apps UI**, which owns the action metadata (name, Code identifier, description, input parameters, annotations, widget type and URLs, CSP), and the **EDS content source**, which holds the page that invokes the block.
+
+At runtime: the host calls the tool → the handler returns `content` (text for the model) and `structuredContent` (data for the widget) → the host loads the widget page from the Widget URL via `aem-embed.js` → the block's `decorate(block, bridge)` reads `structuredContent` from `bridge.toolResult` and renders it.
 
 ## When to use this skill
 
@@ -18,9 +31,12 @@ Trigger on phrases like:
 - "add an action to my llm-app"
 - "create an MCP tool for llm-apps"
 - "scaffold a handler"
-- "add a widget for this action"
+- "add a widget for this action" / "create the block for my action"
+- "I created action `<id>` in the UI, write its handler"
 - "why isn't my tool showing up?"
 - Any repo whose root contains `entry.js`, an `actions/` directory, and depends on `@adobe/llm-apps-runtime` (server core is the runtime package, not in-repo).
+
+This skill ships only in the handler repo, but it also writes into the app's EDS repo (see Step 0).
 
 Do **not** use this skill for:
 
@@ -29,19 +45,22 @@ Do **not** use this skill for:
 
 ## The split-ownership model (read this first)
 
-The boilerplate intentionally splits concerns between two systems:
+The boilerplate intentionally splits concerns:
 
 | Concern | Where it lives | Who edits |
 |---|---|---|
-| Tool metadata (title, description, inputSchema, annotations, visibility, CSP, widget config) | llm-apps UI (DB) -> `actions.json` in production via the deploy pipeline | Product / UX / anyone with UI access |
-| Tool logic (handler code, optional widget.html) | This repo | You |
+| Tool metadata (title, description, inputSchema, annotations, visibility, CSP, widget type + URLs) | llm-apps UI (DB) -> `actions.json` in production via the deploy pipeline | Product / UX / anyone with UI access |
+| Tool logic (handler code, optional custom widget.html) | This repo | You |
+| Widget block (`blocks/<id>/`) | EDS repo | You |
+| Page invoking the block | EDS content source (published page) | The user |
 
 **You never hand-edit metadata in code.** The developer's loop is:
 
-1. Configure metadata in the UI.
-2. Click **Download actions.json** on the Actions page -> drop it at the repo root.
-3. Write the handler here.
-4. `npm run dev:local` (zero Adobe credentials) or `npm run dev` (deploys to I/O Runtime) -> test -> `git push`.
+1. Create the action in the UI (Code identifier + parameters).
+2. Optionally click **Download actions.json** on the Actions page -> drop it at the repo root (otherwise the scaffold writes a local placeholder).
+3. Write the handler here and, for widget actions, the block in the EDS repo.
+4. `npm run dev:local` (zero Adobe credentials) or `npm run dev` (deploys to I/O Runtime) -> test -> `git push` both repos.
+5. Publish the EDS page and set the widget URLs in the UI (user).
 
 The deploy pipeline then writes a fresh `actions.json` from the DB and builds.
 
@@ -55,48 +74,67 @@ fields. Widget links and security schemes are runtime-generated. Global
 ## Decision tree: which action shape?
 
 ```
-Does the tool produce any output at all?
- ├─ No  -> pure widget. No handler folder needed.
- │        The action entry in actions.json with widget_type:"EDS" (or a widget.html file)
- │        registers it. Widget-only is legitimate.
- └─ Yes -> write a handler.
-          │
-          Does the result benefit from a visual UI beyond text?
-           ├─ No  -> tool-only. Return { content: [...] }.
-           ├─ Yes, and the widget is an AEM EDS page
-           │       -> configure widget_type:"EDS" in the UI. No widget.html file.
-           │          Handler returns { content, structuredContent }.
-           └─ Yes, and it's custom (charts, interactive forms, etc.)
-                   -> drop a widget.html next to index.js.
-                      Handler returns { content, structuredContent }.
+Does the result need a visual UI beyond text?
+ ├─ No  -> tool-only. Handler returns { content }. Widget type in UI: "No interactive UI".
+ │         scaffold-action.sh <id>
+ ├─ Yes, EDS block (DEFAULT for LLM Apps; every generated action uses it)
+ │       -> handler returns { content, structuredContent }
+ │          + block blocks/<id>/ in the EDS repo + page invoking it (user)
+ │          + Widget type "Edge Delivery Services block" in the UI (user).
+ │          scaffold-action.sh <id> --eds  +  scaffold-eds-block.sh <id> <eds-repo>
+ └─ Yes, self-contained custom HTML (only if the user asks; no EDS involved)
+         -> actions/<id>/widget.html next to index.js. It overrides any EDS config.
+            scaffold-action.sh <id> --widget
 ```
+
+If the user doesn't say, ask whether the action has a widget; if it does, use the EDS block.
+A missing handler is not "widget-only": the deploy registers a default stub, so always write one.
 
 ## Happy-path workflow
 
-For any new action, follow these five steps in order. Use the scaffold script to avoid manual file creation.
+For any new action, follow these steps in order. Use the scaffold scripts to avoid manual file creation.
 
-### Step 1. Scaffold
+### Step 0. Collect the inputs
 
-From the repo root:
+You need, from the user (who created the action in the llm-apps UI first):
+
+| Input | Example | Notes |
+|---|---|---|
+| **Code identifier** | `savings-calculator` | Shown under the action name in the UI; fixed after creation. It is the handler folder name, the MCP tool name, and the EDS block name. Not the display name. |
+| **Input parameters** | `amount: number, required` | Name, type (String/Number/Integer/Boolean/Object/File), required, description. May be none. |
+| **Widget?** | EDS block / none / custom HTML | See decision tree. |
+| **What it should do** | data source, API, or "dummy for now" | Ask if unclear; don't invent business logic. |
+| **EDS repo path** (if widget) | `../<this-repo>-eds` | Look for a sibling folder containing `blocks/` and `scripts/aem-embed.js`; confirm with the user before writing into it. |
+
+If the user gives a display name ("Savings calculator"), derive the identifier the way the UI does (lowercase, spaces to hyphens) and confirm it. Ask for anything missing in one question at a time; don't guess parameters.
+
+### Step 1. Scaffold the handler
+
+From the handler repo root:
 
 ```bash
-bash .claude/skills/llm-apps-action-author/scripts/scaffold-action.sh <action-name>
-# Add --widget to also create widget.html
-bash .claude/skills/llm-apps-action-author/scripts/scaffold-action.sh weather-lookup --widget
+S=.claude/skills/llm-apps-action-author/scripts
+bash $S/scaffold-action.sh <id>                                        # tool-only
+bash $S/scaffold-action.sh <id> --eds --param amount:number:required   # EDS widget (default)
+bash $S/scaffold-action.sh <id> --widget                               # custom widget.html
 ```
 
-The script validates that `<action-name>` is kebab-case and creates:
+`--param name:type[:required]` (repeatable) seeds the local `actions.json` inputSchema so arguments reach the handler during local testing. Types: `string|number|integer|boolean|object|array`.
 
-- `actions/<action-name>/index.js` from `assets/handler-template.js` (or `handler-with-widget-template.js` if `--widget`)
-- `actions/<action-name>/widget.html` from `assets/widget-template.html` when `--widget` is passed
-- `test/actions/<action-name>.test.js` from `assets/handler-test-template.js` (always — never skip the test file)
+The script validates the identifier and creates:
+
+- `actions/<id>/index.js` from `assets/handler-template.js` (or `handler-with-widget-template.js` with `--eds` / `--widget`)
+- `actions/<id>/widget.html` from `assets/widget-template.html`, **only** with `--widget`
+- `test/actions/<id>.test.js` from `assets/handler-test-template.js` (always — never skip the test file)
+- `test/fixtures/<id>/example.json`: `{ "arguments": { ... } }` with typed placeholders. Replace them with realistic values; the test and `check-action.js` both use them.
+- a local placeholder entry in `actions.json`
 
 ### Step 2. Write the handler
 
 Open `actions/<action-name>/index.js` and replace the TODOs. The contract is:
 
 ```js
-module.exports = async (args) => ({
+module.exports = async (args = {}, extra) => ({
   content: [
     { type: 'text', text: 'Human-readable summary for the LLM / fallback hosts' }
   ],
@@ -104,7 +142,22 @@ module.exports = async (args) => ({
 })
 ```
 
-Rules that matter:
+`args` holds the UI-declared parameters (keys = parameter names). `extra` carries
+`extra.authInfo` (verified caller, only for `requiresAuth` actions) and `extra.variables`
+(app variables from the UI); both may be `undefined` locally, so degrade gracefully. See the
+README sections "Auth in actions" and "Variables & secrets in actions".
+
+Correctness rules (these are what make a handler work first time in a real host):
+
+- **Default `args`** (`args = {}`) and treat every parameter as possibly missing, even required ones: hosts can call with partial args.
+- **Check types** of the args you use (`typeof`, `Number.isFinite`); the UI schema may be looser than your code.
+- **Invalid input or upstream failure** -> return `isError: true` with a clear `content` text, instead of throwing, when the model can recover (e.g. ask the user for a value).
+- **Keep `structuredContent` the same shape on every branch** (success, empty, error): same top-level keys, empty arrays instead of missing keys. The block renders whatever arrives.
+- **Never return `undefined`/`null` fields the block doesn't expect**; prefer `null` only for documented optional values.
+- **Deterministic for the same args** unless the action is inherently live (APIs). Put timeouts on network calls (`AbortSignal.timeout(8000)`) and only map approved fields from upstream responses into `structuredContent`.
+- **Text in `content` must stand alone** for hosts that don't render widgets, and must not repeat everything the widget shows.
+
+Platform rules:
 
 - **Handler must be an async function** (or an ESM `default` export of one). `{ schema, handler }` shapes are **not** accepted.
 - **No `require` of the MCP SDK in your handler.** The loader wires everything; you just return data.
@@ -120,9 +173,9 @@ Open `test/actions/<action-name>.test.js` (scaffolded in Step 1) and replace the
 
 Cover, at minimum:
 
-- The happy path (typical valid args → expected `content[0].text`).
+- The happy path with `example.arguments` (typical valid args → expected `content[0].text`).
 - Each meaningful branch: missing required arg, upstream API error, edge cases your handler actually handles.
-- If the handler returns `structuredContent`: assert it's a **plain object**, not a bare array.
+- If the handler returns `structuredContent`: assert its **exact shape** (keys + types) on the happy path **and** on error/empty branches. This is the contract the block depends on.
 
 Rules that matter:
 
@@ -142,9 +195,9 @@ Iterate until tests pass. If you can't write a test for a behavior, that's usual
 
 See [references/local-testing.md](references/local-testing.md#unit-test-your-handler) for more examples (widget cases, async mocking).
 
-### Step 4. Populate `actions.json`
+### Step 4. Check the local `actions.json`
 
-The scaffold already added a placeholder entry to `actions.json`. **Before smoke testing, add your actual input properties to `inputSchema.properties`** — without them, Zod strips every argument before it reaches your handler and all args will be empty:
+The scaffold added a placeholder entry to the local, gitignored `actions.json` (from `--param`). **Before smoke testing, make sure `inputSchema.properties` lists every parameter** — without them, Zod strips every argument before it reaches your handler and all args will be empty:
 
 ```json
 {
@@ -192,14 +245,51 @@ curl -sX POST "<MCP_URL>" \
 
 For a widget-enabled tool, point Claude Desktop, Cursor, or MCP Inspector at `<MCP_URL>` -- see [references/local-testing.md](references/local-testing.md).
 
-Before shipping, run:
+`npm test` runs every handler's unit tests plus `test/server.test.js` (which discovers action folders from disk, and restores your local `actions.json` afterwards). If `npm test` was already failing before your change, report the pre-existing failures to the user instead of silently fixing unrelated tests.
+
+### Step 6. Scaffold and implement the EDS block (widget actions only)
 
 ```bash
-node .claude/skills/llm-apps-action-author/scripts/validate-handler.js actions/<action-name>/index.js
-npm test
+bash .claude/skills/llm-apps-action-author/scripts/scaffold-eds-block.sh <id> <eds-repo-path>
 ```
 
-`validate-handler.js` checks the export shape and that a trivial call returns a valid `{ content, structuredContent? }` object. `npm test` runs every handler's unit tests plus `test/server.test.js` — both must pass.
+Creates `blocks/<id>/<id>.js` and `.css` in the EDS repo. Then:
+
+1. Set `PREVIEW_RESULT` to the handler's real output for `example.arguments` (copy it from `handler(example.arguments).structuredContent`). `check-action.js` fails if their shapes differ.
+2. Make `render()` read exactly those fields. Handle the empty/error shape (empty arrays, `isError` responses) with an explicit empty state.
+3. Keep the template's guards: `bridge?.` (a plain EDS page view calls `decorate(block)` with no bridge), `live` only when connected and not `hostContext.preview`, `try/catch` around `await bridge.toolResult`, `bridge.autoResize(block)` when connected.
+4. Render tool data with `createElement` + `textContent` only; never `innerHTML` with data. Scope all CSS under `.<id>`.
+5. Follow the EDS repo's `AGENTS.md` (vendored `scripts/aem.js`, `scripts/aem-embed.js`, `scripts/llmapps-sdk.js` are read-only; imports only from `/scripts/`; no build step).
+6. Preview with `npx -y @adobe/aem-cli up` and `http://localhost:3000/tools/widget-preview.html?block=<id>`; run `npm run lint` in the EDS repo.
+
+Contract, bridge API and security rules: [references/eds-widget.md](references/eds-widget.md).
+
+### Definition of done (run before handing off)
+
+Every command must pass. Don't report success otherwise.
+
+```bash
+# handler repo
+node .claude/skills/llm-apps-action-author/scripts/check-action.js <id> [--eds <eds-repo>]
+npx jest test/actions/<id>
+npm test
+npm run lint
+# EDS repo (widget actions)
+npm run lint
+```
+
+`check-action.js` is the end-to-end gate: handler shape (via `validate-handler.js`), test file present, handler runs with `example.json`, local `actions.json` declares every argument, and for the EDS block: exists under the identifier, parses, `decorate(block, bridge)` signature, reads the tool result, guards a missing bridge, no HTML-injection, CSS scoped, no overriding `widget.html`, and **`PREVIEW_RESULT` (and `blocks/<id>/<id>.json` if present) has the same shape as the handler's `structuredContent`**. It auto-detects the sibling `../<repo>-eds`. If the handler needs the network, pass `--args` that works offline or rely on the mocked Jest tests.
+
+### Step 7. Hand off to the user (always, for widget actions)
+
+End by telling the user, explicitly, what only they can do:
+
+1. Push both repos (handler repo and EDS repo).
+2. **Create and publish an EDS page that invokes the block**: a page whose content is a block table with header `<id>` (one empty row), e.g. at `/<id>`.
+3. In the llm-apps UI > action > **LLM Widget details**: Widget type *Edge Delivery Services block*; Script URL `https://main--<repo>--<owner>.aem.live/scripts/aem-embed.js`; Widget URL `https://main--<repo>--<owner>.aem.live/<page-path>`; add the EDS origin (and any API/image origins) to CSP.
+4. Deploy the app (Stage first) and test in ChatGPT or Claude.
+
+Fill in `<repo>`/`<owner>` from the EDS repo's `git remote get-url origin` when available.
 
 ## Return-shape contract
 
@@ -220,8 +310,11 @@ block; the original handler data remains intact.
 |---|---|
 | Tool not in `tools/list` | Handler export shape wrong -> `validate-handler.js`. Or `actions.json` entry missing -> re-download from UI. |
 | Tool appears but description is the raw name | `actions.json` is absent -> filesystem-discovery fallback path. Download `actions.json`. |
-| Widget doesn't render | (a) Both `widget.html` and EDS config exist -> `widget.html` wins; delete it if you want EDS. (b) Host CSP blocks your resource -> configure CSP domains in the UI. |
+| Widget doesn't render | (a) Both `widget.html` and EDS config exist -> `widget.html` wins; delete it if you want EDS. (b) Host CSP blocks your resource -> configure CSP domains in the UI. (c) EDS page not published, or its block name differs from `blocks/<id>/`. (d) Script/Widget URL missing in the UI. |
+| Widget shows preview/sample data in the host | Block always renders `PREVIEW_RESULT`: check the `live` condition reads `bridge.toolResult`. |
+| Widget renders but is empty | Block reads fields the handler doesn't return. Align `structuredContent` and `render()`. |
 | "Skipping ..." warning on startup | Handler didn't export a function. Fix the module export. |
+| `Cannot find module '.../@modelcontextprotocol/sdk/dist/cjs/server/mcp'` in plain `node` | `@adobe/llm-apps-runtime` <= 1.8.0 bug (missing `.js`). Webpack/Jest are unaffected; the skill's scripts load `scripts/lib/runtime-resolve.js` to work around it. |
 | Works locally, fails in prod | You edited `actions.json` by hand. The deploy pipeline overwrites it from the DB. Put the change in the UI. |
 
 See [references/widget-patterns.md](references/widget-patterns.md) for CSP and postMessage details; [references/actions-json-schema.md](references/actions-json-schema.md) for the complete field reference.
@@ -234,15 +327,20 @@ See [references/widget-patterns.md](references/widget-patterns.md) for CSP and p
 ├── references/
 │   ├── actions-json-schema.md        # Every field in actions.json, with examples
 │   ├── widget-patterns.md            # Custom HTML widget + MCP Apps JS API + CSP
-│   ├── eds-widget.md                 # When to pick EDS and what gets generated
+│   ├── eds-widget.md                 # EDS block contract, preview, page + UI hand-off
 │   └── local-testing.md              # npm run dev, Inspector, Claude, Cursor
 ├── assets/
 │   ├── handler-template.js             # Bare handler starter
 │   ├── handler-with-widget-template.js # Handler returning content + structuredContent
 │   ├── handler-test-template.js        # Jest test starter for a handler
-│   └── widget-template.html            # Widget iframe starter
+│   ├── eds-block-template.js           # EDS widget block starter (decorate(block, bridge))
+│   ├── eds-block-template.css          # EDS widget block styles (light/dark)
+│   └── widget-template.html            # Custom widget.html starter
 └── scripts/
     ├── scaffold-action.sh              # Zero-dep action scaffolder (handler + test + optional widget)
+    ├── scaffold-eds-block.sh           # Zero-dep EDS block scaffolder (writes into the EDS repo)
+    ├── check-action.js                 # End-to-end gate: handler + test + block contract
+    ├── lib/runtime-resolve.js          # Lets plain Node load handlers using the runtime
     └── validate-handler.js             # Zero-dep handler shape checker
 ```
 

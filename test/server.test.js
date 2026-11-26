@@ -55,6 +55,12 @@ function removeActionsJson () {
 
 // Shared main for tests that don't depend on actions.json content.
 // Created without actions.json so it doesn't interfere with other describe blocks.
+// The developer's local actions.json (downloaded from the UI) is restored after the suite.
+const ORIGINAL_ACTIONS_JSON = fs.existsSync(ACTIONS_JSON_PATH) ? fs.readFileSync(ACTIONS_JSON_PATH) : null
+afterAll(() => {
+    if (ORIGINAL_ACTIONS_JSON) fs.writeFileSync(ACTIONS_JSON_PATH, ORIGINAL_ACTIONS_JSON)
+    else removeActionsJson()
+})
 removeActionsJson()
 const main = makeMain()
 
@@ -398,7 +404,12 @@ describe('MCP Apps Server', () => {
             const body = JSON.parse(result.body)
             const names = body.result.tools.map(t => t.name)
 
-            expect(names).toEqual(['echo', 'greet', 'open_csv', 'search_mentions', 'whoami'])
+            // Derived from disk so adding an action folder doesn't require editing this test.
+            const handlerFolders = fs.readdirSync(ACTIONS_DIR)
+                .filter(d => fs.existsSync(path.join(ACTIONS_DIR, d, 'index.js')))
+                .sort()
+            expect([...names].sort()).toEqual(handlerFolders)
+            expect(names).toEqual(expect.arrayContaining(['echo', 'greet', 'open_csv', 'search_mentions', 'whoami']))
         })
 
         test('fallback tool uses folder name as description (no metadata)', async () => {
