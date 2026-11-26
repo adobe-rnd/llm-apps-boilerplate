@@ -20,8 +20,6 @@
 const fs = require('fs')
 const path = require('path')
 
-require('./lib/runtime-resolve')
-
 function fail (msg) {
     console.error(`FAIL: ${msg}`)
     process.exit(1)

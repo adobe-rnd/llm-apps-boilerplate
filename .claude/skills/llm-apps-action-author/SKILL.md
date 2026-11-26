@@ -314,7 +314,7 @@ block; the original handler data remains intact.
 | Widget shows preview/sample data in the host | Block always renders `PREVIEW_RESULT`: check the `live` condition reads `bridge.toolResult`. |
 | Widget renders but is empty | Block reads fields the handler doesn't return. Align `structuredContent` and `render()`. |
 | "Skipping ..." warning on startup | Handler didn't export a function. Fix the module export. |
-| `Cannot find module '.../@modelcontextprotocol/sdk/dist/cjs/server/mcp'` in plain `node` | `@adobe/llm-apps-runtime` <= 1.8.0 bug (missing `.js`). Webpack/Jest are unaffected; the skill's scripts load `scripts/lib/runtime-resolve.js` to work around it. |
+| `Cannot find module '.../@modelcontextprotocol/sdk/dist/cjs/server/mcp'` in plain `node` | `@adobe/llm-apps-runtime` < 1.8.2. Upgrade the runtime (`npm i @adobe/llm-apps-runtime@^1.8.2`). |
 | Works locally, fails in prod | You edited `actions.json` by hand. The deploy pipeline overwrites it from the DB. Put the change in the UI. |
 
 See [references/widget-patterns.md](references/widget-patterns.md) for CSP and postMessage details; [references/actions-json-schema.md](references/actions-json-schema.md) for the complete field reference.
@@ -340,7 +340,6 @@ See [references/widget-patterns.md](references/widget-patterns.md) for CSP and p
     ├── scaffold-action.sh              # Zero-dep action scaffolder (handler + test + optional widget)
     ├── scaffold-eds-block.sh           # Zero-dep EDS block scaffolder (writes into the EDS repo)
     ├── check-action.js                 # End-to-end gate: handler + test + block contract
-    ├── lib/runtime-resolve.js          # Lets plain Node load handlers using the runtime
     └── validate-handler.js             # Zero-dep handler shape checker
 ```
 

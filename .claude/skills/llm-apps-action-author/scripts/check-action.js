@@ -31,8 +31,6 @@ const path = require('path')
 const vm = require('vm')
 const { spawnSync } = require('child_process')
 
-require('./lib/runtime-resolve')
-
 const failures = []
 const warnings = []
 const fail = (msg) => { failures.push(msg); console.log(`FAIL: ${msg}`) }
