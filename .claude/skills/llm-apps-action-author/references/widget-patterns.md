@@ -4,53 +4,47 @@ Use a custom `widget.html` when the widget needs interactive behaviour that does
 
 When a `widget.html` exists in `actions/<name>/`, it takes priority over any EDS config.
 
-## Minimum viable widget
+## Data and host API: `@adobe/llmapps-sdk`
+
+Use the SDK from inside the widget; it implements the MCP Apps protocol for every host
+(ChatGPT, Claude, Gemini, ...). **Do not use `window.openai`** directly: it exists only in
+ChatGPT, so the widget would be empty everywhere else. `assets/widget-template.html` and
+`actions/open_csv/widget.html` show the full pattern.
 
 ```html
-<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <style>
-      body { margin: 0; font-family: system-ui, sans-serif; padding: 12px; }
-    </style>
-  </head>
-  <body>
-    <div id="root">Loading ...</div>
-    <script>
-      (async () => {
-        const root = document.getElementById('root');
-        try {
-          const output = await window.openai.toolOutput;
-          root.textContent = JSON.stringify(output, null, 2);
-        } catch (err) {
-          root.textContent = 'No tool output available.';
-        }
-      })();
-    </script>
-  </body>
-</html>
+<script type="module">
+  import { createApp } from "https://esm.sh/@adobe/llmapps-sdk@0.2.1";
+
+  const app = await createApp({ appInfo: { name: "my-tool", version: "1.0.0" } });
+  const result = await app.toolResult;          // { content, structuredContent, isError? }
+  render(result.structuredContent);
+  app.onToolResult((r) => render(r.structuredContent));  // later calls
+  app.autoResize(document.body);
+</script>
 ```
 
-## The `window.openai` / MCP Apps JS API
-
-The host injects a bridge object into the widget iframe. The most useful members:
+`createApp()` returns the same object an EDS block receives as `bridge`:
 
 | Member | Purpose |
 |---|---|
-| `window.openai.toolOutput` | Promise resolving to the `structuredContent` object your handler returned. |
-| `window.openai.callTool(name, args)` | Invoke another tool on the same server. Useful for refresh / drill-down. |
-| `window.openai.sendFollowupTurn(text)` | Queue a new user turn in the conversation. |
-| `window.openai.setWidgetState(state)` / `getWidgetState()` | Persist small bits of UI state across re-renders. |
-| `window.openai.requestDisplayMode(mode)` | Request `inline` / `fullscreen` / `pip`. Hosts may deny. |
+| `app.toolResult` | Promise of the first tool result; read `.structuredContent` |
+| `app.onToolResult(cb)` | Every later tool result |
+| `app.hostContext` / `app.onContextChange(cb)` | Theme, locale, display mode |
+| `app.callTool(name, args)` | Invoke another action on the same server (refresh / drill-down) |
+| `app.sendMessage(text)` | Send a follow-up user message |
+| `app.updateModelContext(input)` | Give the model context without a new message |
+| `app.openLink(url)` | Open a link through the host |
+| `app.requestDisplayMode(mode)` | Request `inline` / `fullscreen` / `pip`; hosts may deny |
+| `app.autoResize(el)` | Keep the iframe sized to the content |
 
-Refer to the [MCP Apps JS API](https://modelcontextprotocol.github.io/ext-apps/api/documents/JS_API.html) for the full surface.
+Full typed surface: `scripts/llmapps-sdk.d.ts` in the EDS repo, or the
+[`@adobe/llmapps-sdk`](https://www.npmjs.com/package/@adobe/llmapps-sdk) package.
 
 ## Handler <-> widget contract
 
 ```js
 // actions/my-tool/index.js
-module.exports = async (args) => {
+module.exports = async (args = {}) => {
   const data = await fetchSomething(args)
   return {
     content: [
@@ -64,15 +58,8 @@ module.exports = async (args) => {
 }
 ```
 
-```html
-<!-- actions/my-tool/widget.html -->
-<script>
-  (async () => {
-    const { items, generatedAt } = await window.openai.toolOutput;
-    render(items, generatedAt);
-  })();
-</script>
-```
+The widget reads `result.structuredContent.items` and `.generatedAt`. Keep the shape identical on
+error/empty branches.
 
 **Never** return a bare array from `structuredContent`. Wrap it in an object (e.g. `{ items: [...] }`). Some hosts serialize differently for top-level arrays.
 
@@ -80,7 +67,7 @@ module.exports = async (args) => {
 
 Widgets run in a sandboxed iframe with a strict Content Security Policy. Every outbound `fetch`, `img src`, `script src`, or `link` must be whitelisted by the host.
 
-You configure CSP in the **llm-apps UI** (`resource_meta.csp`), not in `widget.html`. Fields:
+You configure CSP in the **llm-apps UI** (`resource_meta.csp`), not in `widget.html`. Add `https://esm.sh` to `resourceDomains` for the SDK import. Fields:
 
 - `connectDomains`: hosts for `fetch` / `XHR` / `WebSocket`.
 - `resourceDomains`: hosts for `<img>`, `<script>`, `<link>`.
@@ -93,8 +80,9 @@ Forgetting to list a domain is the single most common cause of "the widget is bl
 |---|---|
 | `<script src="./bundle.js">` | The widget is inlined as a single string at build time; there is no relative file system. Inline all scripts. |
 | Loading React/Vue from npm | Same reason. Use CDN links (still needs `resourceDomains`) or vanilla JS. |
-| Reading cookies / localStorage to persist state | The iframe origin may be ephemeral. Use `window.openai.setWidgetState`. |
-| Calling your own handler by hitting the MCP URL directly | CORS + auth will bite you. Use `window.openai.callTool(name, args)`. |
+| Reading cookies / localStorage to persist state | The iframe origin may be ephemeral and sandboxed. Keep state in the tool result or call another action. |
+| Calling your own handler by hitting the MCP URL directly | CORS + auth will bite you. Use `app.callTool(name, args)`. |
+| Using `window.openai.*` | ChatGPT-only. Use `@adobe/llmapps-sdk`. |
 | Returning secrets in `structuredContent` | It's rendered in the host's DOM and can leak to extensions. Strip sensitive fields. |
 | Executing strings as code (`eval`, `new Function(userInput)`) | Forbidden by the CSP and by security policy. |
 

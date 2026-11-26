@@ -1,9 +1,9 @@
 ---
 name: llm-apps-action-author
-description: Create and edit LLM Apps actions end to end — the MCP tool handler in this Adobe I/O Runtime repo AND its EDS widget block in the app's companion EDS repo. Use when the user asks to "add an action", "implement my new action", "create an MCP tool", "scaffold a handler", "write a tool-only handler", "add a widget/block for my llm-app action", or is working in a repo derived from the llm-apps boilerplate (has an `actions/` directory, `entry.js`, and depends on `@adobe/llm-apps-runtime`). Starts from the action's Code identifier and input parameters configured in the llm-apps UI, produces a correctly shaped handler (content + structuredContent) with tests, a matching EDS block (`decorate(block, bridge)`), and tells the user the remaining manual steps (publish an EDS page invoking the block, set the widget URLs in the UI). Covers local testing with `npm run dev:local` and the EDS block preview harness.
+description: Create and edit LLM Apps actions end to end — the MCP tool handler in this Adobe I/O Runtime repo AND its EDS widget block in the app's companion EDS repo. Use when the user asks to "add an action", "implement my new action", "create an MCP tool", "scaffold a handler", "write a tool-only handler", "add a widget/block for my llm-app action", or is working in a repo derived from the llm-apps boilerplate (has an `actions/` directory, `entry.js`, and depends on `@adobe/llm-apps-runtime`). Starts from the action's Code identifier and input parameters configured in the llm-apps UI, produces a correctly shaped handler (content + structuredContent) with tests, a matching EDS block (`decorate(block, bridge)`), and guides the user through every step outside the code: creating the action in the llm-apps UI, publishing an EDS page that invokes the block, setting the widget URLs/CSP, deploying and testing. Covers local testing with `npm run dev:local` and the EDS block preview harness.
 metadata:
   author: Adobe llm-apps
-  version: 0.2.0
+  version: 0.3.0
   mcp-server: llm-apps
 ---
 
@@ -41,7 +41,7 @@ This skill ships only in the handler repo, but it also writes into the app's EDS
 Do **not** use this skill for:
 
 - Adobe Commerce actions, AEM custom apps, or non-boilerplate App Builder projects.
-- Authoring tool **metadata** (name, description, input schema, annotations, visibility, CSP). That lives in the llm-apps UI, not in code. If the user tries to edit metadata here, redirect them.
+- Authoring tool **metadata** (name, description, input schema, annotations, visibility, CSP). That lives in the llm-apps UI, not in code. If the user tries to edit metadata here, redirect them with the exact UI steps ([references/user-guide.md](references/user-guide.md#3-when-the-user-asks-to-change-metadata)).
 
 ## The split-ownership model (read this first)
 
@@ -64,7 +64,7 @@ The boilerplate intentionally splits concerns:
 
 The deploy pipeline then writes a fresh `actions.json` from the DB and builds.
 
-If the user asks you to "set the description of my tool", "add CSP domains", or "change the inputSchema" -- **tell them to do it in the UI**, then re-download `actions.json`.
+If the user asks you to "set the description of my tool", "add CSP domains", or "change the inputSchema" -- **tell them where to do it in the UI** ([user-guide §3](references/user-guide.md#3-when-the-user-asks-to-change-metadata)), then re-download `actions.json`.
 
 The runtime forwards only allowlisted protocol metadata, not internal authoring
 fields. Widget links and security schemes are runtime-generated. Global
@@ -96,12 +96,14 @@ For any new action, follow these steps in order. Use the scaffold scripts to avo
 
 ### Step 0. Collect the inputs
 
-You need, from the user (who created the action in the llm-apps UI first):
+The action must exist in the llm-apps UI first: its Code identifier is fixed there. **If the user hasn't created it (or doesn't know the identifier), send them the walkthrough in [references/user-guide.md §1](references/user-guide.md#1-create-the-action-in-the-llm-apps-ui) and wait.** Don't invent an identifier and start coding.
+
+You need, from the user:
 
 | Input | Example | Notes |
 |---|---|---|
 | **Code identifier** | `savings-calculator` | Shown under the action name in the UI; fixed after creation. It is the handler folder name, the MCP tool name, and the EDS block name. Not the display name. |
-| **Input parameters** | `amount: number, required` | Name, type (String/Number/Integer/Boolean/Object/File), required, description. May be none. |
+| **Input parameters** | `amount: number, required` | Name, type (String/Number/Integer/Boolean/Object/File), required, description. May be none. A *File* parameter arrives as `{ name, resourceUri }`: pass it as `--param <name>:object` and read it with `getFileInput(args)` from `@adobe/llm-apps-runtime` (see `actions/open_csv`). |
 | **Widget?** | EDS block / none / custom HTML | See decision tree. |
 | **What it should do** | data source, API, or "dummy for now" | Ask if unclear; don't invent business logic. |
 | **EDS repo path** (if widget) | `../<this-repo>-eds` | Look for a sibling folder containing `blocks/` and `scripts/aem-embed.js`; confirm with the user before writing into it. |
@@ -131,7 +133,7 @@ The script validates the identifier and creates:
 
 ### Step 2. Write the handler
 
-Open `actions/<action-name>/index.js` and replace the TODOs. The contract is:
+Open `actions/<id>/index.js` and replace the TODOs. The contract is:
 
 ```js
 module.exports = async (args = {}, extra) => ({
@@ -169,7 +171,7 @@ Platform rules:
 
 ### Step 3. Write tests
 
-Open `test/actions/<action-name>.test.js` (scaffolded in Step 1) and replace the TODO with real assertions. **Always write tests before moving on** — they are the fastest feedback loop, faster than any `curl` or host integration.
+Open `test/actions/<id>.test.js` (scaffolded in Step 1) and replace the TODO with real assertions. **Always write tests before moving on** — they are the fastest feedback loop, faster than any `curl` or host integration.
 
 Cover, at minimum:
 
@@ -187,9 +189,11 @@ Rules that matter:
 Run tests:
 
 ```bash
-npx jest test/actions/<action-name>   # just this handler, fast
-npm test                              # everything (handler units + server integration)
+npx jest test/actions/<id>   # just this handler, fast
+npm test                     # everything (handler units + server integration)
 ```
+
+`npm test` also runs `test/server.test.js`, which discovers action folders from disk and restores your local `actions.json` afterwards. If `npm test` was already failing before your change, report the pre-existing failures to the user instead of silently fixing unrelated tests.
 
 Iterate until tests pass. If you can't write a test for a behavior, that's usually a sign the handler is doing too much — refactor.
 
@@ -240,12 +244,10 @@ If it's in the list, call it:
 curl -sX POST "<MCP_URL>" \
   -H 'content-type: application/json' \
   -H 'accept: application/json;q=1.0, text/event-stream;q=0.5' \
-  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"<action-name>","arguments":{...}}}'
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"<id>","arguments":{...}}}'
 ```
 
 For a widget-enabled tool, point Claude Desktop, Cursor, or MCP Inspector at `<MCP_URL>` -- see [references/local-testing.md](references/local-testing.md).
-
-`npm test` runs every handler's unit tests plus `test/server.test.js` (which discovers action folders from disk, and restores your local `actions.json` afterwards). If `npm test` was already failing before your change, report the pre-existing failures to the user instead of silently fixing unrelated tests.
 
 ### Step 6. Scaffold and implement the EDS block (widget actions only)
 
@@ -280,16 +282,16 @@ npm run lint
 
 `check-action.js` is the end-to-end gate: handler shape (via `validate-handler.js`), test file present, handler runs with `example.json`, local `actions.json` declares every argument, and for the EDS block: exists under the identifier, parses, `decorate(block, bridge)` signature, reads the tool result, guards a missing bridge, no HTML-injection, CSS scoped, no overriding `widget.html`, and **`PREVIEW_RESULT` (and `blocks/<id>/<id>.json` if present) has the same shape as the handler's `structuredContent`**. It auto-detects the sibling `../<repo>-eds`. If the handler needs the network, pass `--args` that works offline or rely on the mocked Jest tests.
 
-### Step 7. Hand off to the user (always, for widget actions)
+### Step 7. Hand off to the user (always)
 
-End by telling the user, explicitly, what only they can do:
+Finish with the hand-off message from [references/user-guide.md §2](references/user-guide.md#2-hand-off-message-after-the-code-is-done), for the matching action type, **with every placeholder filled in** (identifier, EDS owner/repo from `git remote get-url origin`, page path, exact Script/Widget URLs, CSP origins, an example prompt). For widget actions it covers:
 
-1. Push both repos (handler repo and EDS repo).
-2. **Create and publish an EDS page that invokes the block**: a page whose content is a block table with header `<id>` (one empty row), e.g. at `/<id>`.
-3. In the llm-apps UI > action > **LLM Widget details**: Widget type *Edge Delivery Services block*; Script URL `https://main--<repo>--<owner>.aem.live/scripts/aem-embed.js`; Widget URL `https://main--<repo>--<owner>.aem.live/<page-path>`; add the EDS origin (and any API/image origins) to CSP.
-4. Deploy the app (Stage first) and test in ChatGPT or Claude.
+1. Push and merge both repos.
+2. Create and publish the EDS page that invokes the block (one-column table with header `<id>`), and check it renders on `aem.live`.
+3. In the llm-apps UI > **Actions** > `<id>` > **LLM Widget details**: widget type, widget domain, widget description, Script URL, Widget URL, CSP; **Save changes**.
+4. Deploy to Stage, test in ChatGPT or Claude, then promote to Production.
 
-Fill in `<repo>`/`<owner>` from the EDS repo's `git remote get-url origin` when available.
+The widget doesn't show in any host until the user completes steps 2–4, so never end with just "done".
 
 ## Return-shape contract
 
@@ -299,7 +301,8 @@ Fill in `<repo>`/`<owner>` from the EDS repo's `git remote get-url origin` when 
 | `structuredContent` | No | Clients and widgets; model visibility depends on the host | Plain object. **Not** a bare array -- wrap it: `{ items: [...] }` |
 
 Do not assume `structuredContent` is hidden from the model; never put secrets in
-it. Widgets can read it through `window.openai.toolOutput`. Always return `content`
+it. EDS blocks read it from `bridge.toolResult`, custom widgets from `app.toolResult`
+(`@adobe/llmapps-sdk`); never `window.openai` (ChatGPT-only). Always return `content`
 as the fallback; add `structuredContent` when clients or widgets need structured
 data. Protocol consumers must tolerate the runtime's extra instruction content
 block; the original handler data remains intact.
@@ -326,7 +329,8 @@ See [references/widget-patterns.md](references/widget-patterns.md) for CSP and p
 ├── SKILL.md                          # This file
 ├── references/
 │   ├── actions-json-schema.md        # Every field in actions.json, with examples
-│   ├── widget-patterns.md            # Custom HTML widget + MCP Apps JS API + CSP
+│   ├── widget-patterns.md            # Custom widget.html + @adobe/llmapps-sdk API + CSP
+│   ├── user-guide.md                 # What to tell the user: UI action setup + hand-off message
 │   ├── eds-widget.md                 # EDS block contract, preview, page + UI hand-off
 │   └── local-testing.md              # npm run dev, Inspector, Claude, Cursor
 ├── assets/

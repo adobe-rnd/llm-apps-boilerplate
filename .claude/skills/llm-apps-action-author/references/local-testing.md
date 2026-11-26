@@ -96,20 +96,23 @@ You get a real UI for listing tools, calling them with forms built from the inpu
 
 ## Claude Desktop
 
-Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
+`claude_desktop_config.json` only launches local (stdio) servers, so bridge the HTTP endpoint with
+[`mcp-remote`](https://www.npmjs.com/package/mcp-remote). Edit
+`~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or
+`%APPDATA%\Claude\claude_desktop_config.json` (Windows):
 
 ```json
 {
   "mcpServers": {
     "llm-apps-local": {
-      "transport": {
-        "type": "streamable-http",
-        "url": "<MCP_URL>"
-      }
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "<MCP_URL>"]
     }
   }
 }
 ```
+
+For a deployed HTTPS endpoint you can instead add it under **Settings > Connectors**.
 
 Restart Claude Desktop. Tools appear under the plug icon in the composer. Widgets render inline.
 

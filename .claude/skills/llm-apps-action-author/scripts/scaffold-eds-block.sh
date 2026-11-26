@@ -70,4 +70,5 @@ Then the USER must (not doable from code):
      Script URL  https://main--<repo>--<owner>.aem.live/scripts/aem-embed.js
      Widget URL  https://main--<repo>--<owner>.aem.live/<page-path>
      and add the EDS origin to the CSP domains.
+  Full filled-in instructions: references/user-guide.md (section 2).
 EOF

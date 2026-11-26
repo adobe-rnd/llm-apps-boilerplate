@@ -6,7 +6,7 @@
  * actions.json by the deploy pipeline.
  */
 
-module.exports = async (args) => {
+module.exports = async (args = {}) => {
     // TODO: implement the tool logic. `args` matches the input schema
     //       you configured in the llm-apps UI.
 

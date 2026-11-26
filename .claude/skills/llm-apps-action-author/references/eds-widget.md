@@ -91,32 +91,11 @@ npm run lint
 `tools/widget-preview.html` mounts the block with a preview bridge
 (`hostContext.preview === true`), so it renders `PREVIEW_RESULT`.
 
-## What the user must do (tell them explicitly)
+## What the user must do
 
-These steps are outside both repos; the skill cannot do them:
-
-1. **Push the EDS repo.** Merging to `main` ships the block code.
-2. **Create and publish an EDS page that invokes the block.** In the EDS content source
-   (Document Authoring / SharePoint / Google Drive), create a page whose content is just a
-   block table:
-
-   | <id> |
-   |---|
-   |  |
-
-   Preview and publish it, e.g. at `/<id>`. The repo's `content/<id>-demo.plain.html` files
-   show the expected markup but are **not** published content.
-3. **Configure the widget in the llm-apps UI** (action > **LLM Widget details**):
-
-   | Field | Value |
-   |---|---|
-   | Widget type | Edge Delivery Services block |
-   | Script URL (`eds_widget.script_url`) | `https://main--<repo>--<owner>.aem.live/scripts/aem-embed.js` |
-   | Widget URL (`eds_widget.widget_embed_url`) | `https://main--<repo>--<owner>.aem.live/<page-path>` |
-   | CSP (`resource_meta.csp`) | the EDS origin in connect + resource domains, plus any API / image origins the block uses |
-
-   Both URLs must be HTTPS.
-4. **Deploy the app** and test it in ChatGPT or Claude.
+Publishing the page, setting the widget URLs/CSP in the UI and deploying are done by the user.
+Send them the filled-in hand-off message from [user-guide.md §2](user-guide.md#2-hand-off-message-after-the-code-is-done).
+The repo's `content/<id>-demo.plain.html` files show the page markup but are **not** published content.
 
 ## What the runtime generates
 
