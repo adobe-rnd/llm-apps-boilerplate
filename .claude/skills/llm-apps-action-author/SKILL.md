@@ -41,7 +41,7 @@ This skill ships only in the handler repo, but it also writes into the app's EDS
 Do **not** use this skill for:
 
 - Adobe Commerce actions, AEM custom apps, or non-boilerplate App Builder projects.
-- Authoring tool **metadata** (name, description, input schema, annotations, visibility, CSP). That lives in the llm-apps UI, not in code. If the user tries to edit metadata here, redirect them with the exact UI steps ([references/user-guide.md](references/user-guide.md#3-when-the-user-asks-to-change-metadata)).
+- Authoring tool **metadata** (name, description, input schema, annotations, visibility, CSP). That lives in the llm-apps UI, not in code. If the user tries to edit metadata here, redirect them with the exact UI steps ([references/user-guide.md](references/user-guide.md#4-when-the-user-asks-to-change-metadata)).
 
 ## The split-ownership model (read this first)
 
@@ -64,7 +64,7 @@ The boilerplate intentionally splits concerns:
 
 The deploy pipeline then writes a fresh `actions.json` from the DB and builds.
 
-If the user asks you to "set the description of my tool", "add CSP domains", or "change the inputSchema" -- **tell them where to do it in the UI** ([user-guide §3](references/user-guide.md#3-when-the-user-asks-to-change-metadata)), then re-download `actions.json`.
+If the user asks you to "set the description of my tool", "add CSP domains", or "change the inputSchema" -- **tell them where to do it in the UI** ([user-guide §3](references/user-guide.md#4-when-the-user-asks-to-change-metadata)), then re-download `actions.json`.
 
 The runtime forwards only allowlisted protocol metadata, not internal authoring
 fields. Widget links and security schemes are runtime-generated. Global
@@ -107,6 +107,8 @@ You need, from the user:
 | **Widget?** | EDS block / none / custom HTML | See decision tree. |
 | **What it should do** | data source, API, or "dummy for now" | Ask if unclear; don't invent business logic. |
 | **EDS repo path** (if widget) | `../<this-repo>-eds` | Look for a sibling folder containing `blocks/` and `scripts/aem-embed.js`; confirm with the user before writing into it. |
+
+Also ask for the action's **Description** and review it with [user-guide §3](references/user-guide.md#3-writing-the-action-description): it is what the AI uses to decide whether to call the action. Propose a rewrite if it is vague, broader than what the handler does, or overlaps sibling actions; the user pastes it into the UI.
 
 If the user gives a display name ("Savings calculator"), derive the identifier the way the UI does (lowercase, spaces to hyphens) and confirm it. Ask for anything missing in one question at a time; don't guess parameters.
 

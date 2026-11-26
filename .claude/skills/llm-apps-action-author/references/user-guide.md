@@ -26,7 +26,7 @@ Send this when the user hasn't created the action yet (or isn't sure of its iden
 > **Create the action in LLM Apps first**
 >
 > 1. Open your app > **Actions** > **Create Action**.
-> 2. **Action details**
+> 2. **Action details** (I can help you write the description: it decides when the AI picks this action)
 >    - **Action name**: a short task name, e.g. *Savings calculator*. The UI derives the
 >      **Code identifier** (e.g. `savings-calculator`). It is fixed after creation and becomes the
 >      handler folder, the tool name and the EDS block name, so tell me the exact value.
@@ -111,7 +111,39 @@ Send the variant that matches the action, with all values filled in. Include the
 As the text-only variant, plus: in **LLM Widget details** > **CSP Configuration**, add
 `https://esm.sh` (the SDK import) and `<api-origins>` to resource / connect domains. No EDS page.
 
-## 3. When the user asks to change metadata
+## 3. Writing the action description
+
+The **Description** (Action details) is the main text the AI reads when deciding whether a user
+prompt should call this action, and with what arguments. Hosts show the model every action's
+name, description and parameter descriptions and pick one; a vague description means missed
+calls or wrong calls. When the user creates or implements an action, **review their description
+and propose a better one** against this checklist:
+
+1. **Starts with when to use it**: "Use this when the user wants to ...", phrased as user intents,
+   including common wordings ("how much will I have", "how long to save for").
+2. **Says what it does and returns**, matching the handler exactly. Never promise what the code
+   doesn't do (e.g. a placeholder can't claim calculations).
+3. **Names the inputs** it needs, so the model asks the user for missing ones. Details go in each
+   parameter's description (units, format, defaults: "Annual interest rate in percent, e.g. 4.5").
+4. **Says when NOT to use it**, especially versus sibling actions in the same app
+   (list `actions/` to see them), so prompts route to the right one.
+5. **Mentions the widget** if there is one ("shows the result in an interactive calculator").
+6. **Concise and specific**: 1–4 sentences, plain language, no marketing, no instructions to the
+   model about other tools, no secrets or internal URLs.
+
+Bad: "Use this action for any question around savings accounts." (too broad: also catches product
+or rate questions it can't answer; doesn't say what it returns or needs.)
+
+Good: "Use this when the user wants to estimate how their savings could grow over time. Calculates
+the projected balance and interest earned from a starting amount, a monthly deposit, an annual
+interest rate and a number of years, and shows the result in an interactive savings calculator.
+Do not use it to list, compare or open savings accounts, or for current accounts or mortgages."
+
+The **Widget description** (LLM Widget details) is different: one sentence on what the rendered
+widget shows, so the model doesn't repeat it in text. Don't return either description from the
+handler.
+
+## 4. When the user asks to change metadata
 
 Name, description, parameters, annotations, widget URLs and CSP are edited only in the UI:
 LLM Apps > **Actions** > `<id>` > the relevant tab > **Save changes**, then redeploy. If they
