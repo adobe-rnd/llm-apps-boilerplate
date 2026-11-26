@@ -289,7 +289,7 @@ npm run lint
 Finish with the hand-off message from [references/user-guide.md §2](references/user-guide.md#2-hand-off-message-after-the-code-is-done), for the matching action type, **with every placeholder filled in** (identifier, EDS owner/repo from `git remote get-url origin`, page path, exact Script/Widget URLs, CSP origins, an example prompt). For widget actions it covers:
 
 1. Push and merge both repos.
-2. Create and publish the EDS page that invokes the block (one-column table with header `<id>`), and check it renders on `aem.live`.
+2. Create and publish the EDS page that invokes the block (one-column table with header `<id>`, at `/eds-widgets/<id>-demo` like generated actions), and check it renders.
 3. In the llm-apps UI > **Actions** > `<id>` > **LLM Widget details**: widget type, widget domain, widget description, Script URL, Widget URL, CSP; **Save changes**.
 4. Deploy to Stage, test in ChatGPT or Claude, then promote to Production.
 
